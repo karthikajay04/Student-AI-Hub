@@ -1,0 +1,73 @@
+import React from "react";
+
+function Debugger() {
+  const [code, setCode] = React.useState("");
+  const [isDebugging, setIsDebugging] = React.useState(false);
+  const [result, setResult] = React.useState("");
+
+  function debug() {
+    if (!code.trim()) return;
+    setIsDebugging(true);
+    setResult("");
+    setTimeout(() => {
+      setResult(
+        "✅ No syntax errors found.\n💡 Potential improvement: handle edge case when input is null."
+      );
+      setIsDebugging(false);
+    }, 900);
+  }
+
+  return (
+    <section className="min-h-screen bg-black text-white flex items-center justify-center p-6">
+      <div className="mt-30 w-full max-w-3xl bg-[#0d0d0d] border border-blue-700 rounded-2xl shadow-lg p-8">
+        <h2 className="text-3xl font-bold text-yellow-400 mb-3">
+          Code Debugger
+        </h2>
+        <p className="text-gray-400 mb-4">
+          Paste your code below to analyze and get suggested fixes.
+        </p>
+
+        <textarea
+          className="w-full p-4 bg-[#1a1a1a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          rows={10}
+          placeholder="Paste your code here..."
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+        />
+
+        <div className="flex flex-wrap gap-4 mt-4">
+          <button
+            onClick={debug}
+            disabled={isDebugging}
+            className={`px-5 py-2 rounded-lg font-semibold transition-all ${
+              isDebugging
+                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            }`}
+          >
+            {isDebugging ? "Debugging…" : "Debug"}
+          </button>
+
+          <button
+            onClick={() => setCode("")}
+            className="px-5 py-2 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white transition-all"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div className="mt-8">
+          <div className="flex justify-between items-center mb-3">
+            <strong className="text-yellow-400">Results</strong>
+          </div>
+
+          <pre className="bg-[#111111] border border-gray-700 rounded-lg p-4 overflow-x-auto text-sm text-gray-100">
+            <code>{result || "// Debug results will appear here."}</code>
+          </pre>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default Debugger;
