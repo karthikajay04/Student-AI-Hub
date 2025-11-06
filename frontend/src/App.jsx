@@ -14,7 +14,7 @@ import AIChatbot from "./components/Tools/AIChatbot";
 import Timmer from "./components/Tools/StudentTimer";
 import ResumeAnalyzer from "./components/Tools/ResumeAnalyzer";
 import RoadmapDeveloper from "./components/Tools/RoadmapDeveloper";
-import ContactPage from "./components/ContactPagetest1";
+import ContactPage from "./components/ContactPage";
 import ToDoList from "./components/Tools/ToDoList/ToDoList";
 
 

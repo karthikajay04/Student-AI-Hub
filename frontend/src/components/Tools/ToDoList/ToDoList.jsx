@@ -30,70 +30,12 @@ const SpinnerIcon = () => (
 
 
 // --- Gemini API Call Functions ---
-
-async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
-  try {
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-        console.error(`Client error: ${response.status}. Not retrying.`);
-        throw new Error(`Client error: ${response.status}`);
-      }
-      if (retries > 0) {
-        console.warn(`Retrying... (${retries} retries left). Status: ${response.status}`);
-        await new Promise(res => setTimeout(res, delay));
-        return fetchWithRetry(url, options, retries - 1, delay * 2);
-      } else {
-        throw new Error(`Failed after retries: ${response.status}`);
-      }
-    }
-    
-    return response.json();
-  } catch (error) {
-    if (retries > 0) {
-      console.warn(`Retrying... (${retries} retries left). Error: ${error.message}`);
-      await new Promise(res => setTimeout(res, delay));
-      return fetchWithRetry(url, options, retries - 1, delay * 2);
-    } else {
-      console.error("Failed after all retries.", error);
-      throw error;
-    }
-  }
-}
-
-async function callGeminiAPI(userQuery, systemPrompt) {
-  const apiKey = ""; // API key will be provided by the environment
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-  const payload = {
-    contents: [{ parts: [{ text: userQuery }] }],
-    systemInstruction: {
-      parts: [{ text: systemPrompt }]
-    },
-  };
-
-  const options = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  };
-
-  try {
-    const result = await fetchWithRetry(apiUrl, options);
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    if (text) {
-      return text;
-    } else {
-      console.error("No content found in Gemini response:", result);
-      throw new Error("No content found in Gemini response.");
-    }
-  } catch (error) {
-    console.error("Gemini API call failed:", error);
-    throw new Error(`Gemini API call failed: ${error.message}`);
-  }
-}
+//
+// These functions (fetchWithRetry and callGeminiAPI) are no longer needed.
+// The API call is now made from the CreateArea component to your backend.
+//
+// async function fetchWithRetry(url, options, retries = 3, delay = 1000) { ... }
+// ... no longer needed ...
 
 
 // --- Internal Components ---
@@ -168,6 +110,7 @@ function CreateArea(props) {
     setExpanded(false);
   }
 
+  // --- UPDATED to call your backend /api/generate route ---
   async function handleGenerateContent(event) {
     event.preventDefault();
     const prompt = note.content || note.title;
@@ -180,37 +123,50 @@ function CreateArea(props) {
     const systemPrompt = "You are a task breakdown assistant. The user will provide a task, title, or idea. Break it down into a concise, actionable to-do list. Use simple bullet points (e.g., '- Item 1') for the list. Do not add any introductory or concluding text, just the list.";
 
     try {
-  // 1. Define the service you want to use
-  // const serviceToUse = 'gemini';
-  
-  
-  const response = await axios.post('/api/generate', {
-    prompt: userPrompt,         // "My code is broken"
-    systemPrompt: systemPrompt, // "You are a code debugger..."
-    service: 'gemini'           // The selected service
-  });
+      // 1. Call your backend's /api/generate endpoint
+      // (Using fetch, which is built-in to React, so no axios needed)
+      
+      // --- THIS LINE IS UPDATED ---
+      const response = await fetch('http://localhost:5001/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          systemPrompt: systemPrompt,
+          service: 'llama' // Assuming your backend uses this to select the service
+        }),
+      });
+      // --- END OF UPDATE ---
 
-  // 3. Get the text from your backend's standardized response
-  const generatedText = response.data.text; 
+      if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
+      }
 
-  // 4. Update your React state (this logic is the same as yours)
-  setNote(prevNote => ({
-    ...prevNote,
-    content: generatedText
-  }));
+      // 2. Get the text from your backend's standardized response
+      const data = await response.json();
+      const generatedText = data.text; // Assumes your backend sends { "text": "..." }
 
-} catch (error) {
+      // 3. Update your React state
+      setNote(prevNote => ({
+        ...prevNote,
+        content: generatedText
+      }));
+
+    } catch (error) {
       console.error("Failed to generate task breakdown:", error);
     } finally {
       setIsGenerating(false);
     }
   }
+  // --- END OF UPDATE ---
 
   function expand() {
     setExpanded(true);
   }
 
-  const inputStyles = "w-full border-none p-1 outline-none text-lg font-['Montserrat',_sans-serif] resize-none text-black placeholder-gray-500 bg-transparent";
+  const inputStyles = "w-full border-none p-1 outline-none text-lg font-['Montserrat',_sans_serif] resize-none text-black placeholder-gray-500 bg-transparent";
 
   return (
     <div>
@@ -304,4 +260,3 @@ function ToDoList() {
 }
 
 export default ToDoList;
-

@@ -1,11 +1,10 @@
 // src/controllers/ai.controller.js
 const geminiService = require('../services/gemini.service');
+const llamaService = require('../services/llama.service');
 
 const handleGeneration = async (req, res) => {
-  // --- UPDATED ---
-  // Now destructuring systemPrompt as well
+  // Get all three inputs from the React app
   const { prompt, systemPrompt, service } = req.body;
-  // --- END UPDATE ---
 
   if (!prompt || !service) {
     return res.status(400).json({ error: 'Prompt and service are required.' });
@@ -16,13 +15,14 @@ const handleGeneration = async (req, res) => {
 
     switch (service) {
       case 'gemini':
-        // --- UPDATED ---
-        // Pass systemPrompt to the service
+        // Pass both prompts to the service
         result = await geminiService.generate(prompt, systemPrompt);
-        // --- END UPDATE ---
         break;
       
-      
+      case 'llama':
+        // Pass both prompts to the service
+        result = await llamaService.generate(prompt, systemPrompt);
+        break;
 
       default:
         return res.status(400).json({ error: 'Invalid service selected.' });

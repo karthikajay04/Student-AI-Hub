@@ -26,7 +26,7 @@ async function generate(prompt, systemPrompt) {
     };
   } catch (error) {
     console.error("Gemini API Error:", error);
-    throw new Error('Failed to generate content from Gemini.');
+    throw new Error('Failed to generate content.');
   }
 }
 
