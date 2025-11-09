@@ -80,7 +80,7 @@ function ResumeAnalyzer() {
           {
             prompt: text,
             systemPrompt: systemPrompt,
-            service: 'gemini' // Or 'llama', 'gemini' is fine
+            service: 'llama' // Or 'llama', 'gemini' is fine
           }
         );
         

@@ -13,8 +13,10 @@ async function generate(prompt, systemPrompt) {
       messages.push({ role: 'system', content: systemPrompt });
     }
     messages.push({ role: 'user', content: prompt });
+    // console.log('My HF Token:', process.env.HF_TOKEN);
 
     const chatCompletion = await client.chat.completions.create({
+      
         // --- THIS IS THE FIX ---
         model: "meta-llama/Meta-Llama-3-8B-Instruct", // Removed ":novita"
         // --- END OF FIX ---

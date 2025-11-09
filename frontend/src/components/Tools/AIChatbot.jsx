@@ -2,43 +2,22 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GradientText from '../AnimatedText/GradientText';
 
-// --- SVG Icons (for a cleaner UI) ---
+// --- NEW IMPORTS ---
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { FiCopy } from 'react-icons/fi'; // Copy Icon
+import { LuTrash2 } from 'react-icons/lu'; // Better Trash Icon
+import { IoSend } from 'react-icons/io5'; // Better Send Icon
 
-// Send Icon
-const SendIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    height="1em"
-    width="1em"
-    className="w-5 h-5"
-  >
-    <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-  </svg>
-);
-
-// Trash Icon (for Clear Chat)
-const TrashIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    height="1em"
-    width="1em"
-    className="w-5 h-5"
-  >
-    <path
-      fillRule="evenodd"
-      d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.006a.75.75 0 01-.749.658H5.756a.75.75 0 01-.749-.658L4 6.714l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.816 1.387 2.816 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.347-9zm5.399 0a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.347-9z"
-      clipRule="evenodd"
-    />
-  </svg>
-);
+// --- ICONS ---
+const SendIcon = () => <IoSend className="w-5 h-5" />;
+const TrashIcon = () => <LuTrash2 className="w-5 h-5" />;
+const CopyIcon = () => <FiCopy className="w-4 h-4" />;
 
 // --- Animated Background Component ---
-// Creates subtle pulsing dots for an "animated black bg"
 const AnimatedBackground = () => (
   <div className="absolute inset-0 z-0 overflow-hidden">
-    {/* Create a grid of dots */}
     {[...Array(20)].map((_, i) => (
       <motion.div
         key={i}
@@ -52,7 +31,7 @@ const AnimatedBackground = () => (
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: [0, 1, 0] }}
         transition={{
-          duration: Math.random() * 5 + 5, // Slower, random pulse
+          duration: Math.random() * 5 + 5,
           repeat: Infinity,
           delay: Math.random() * 5,
         }}
@@ -61,10 +40,133 @@ const AnimatedBackground = () => (
   </div>
 );
 
+// --- NEW: Chat Message Component (Handles Copy Button & Markdown) ---
+const ChatMessage = ({ message }) => {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = () => {
+    // Use clipboard API to copy text
+    navigator.clipboard.writeText(message.text).then(() => {
+      setIsCopied(true);
+      // Reset "Copied!" text after 2 seconds
+      setTimeout(() => setIsCopied(false), 2000);
+    });
+  };
+
+  return (
+    <motion.div
+      key={message.id}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className={`flex ${
+        message.sender === 'user' ? 'justify-end' : 'justify-start'
+      }`}
+    >
+      {/* ** THIS IS THE FIX **
+          The 'prose' classes are moved to this parent div
+          to fix the react-markdown error.
+      */}
+      <div
+        className={`relative max-w-xs lg:max-w-2xl px-4 py-3 rounded-2xl group ${
+          message.sender === 'user'
+            ? 'bg-blue-600 rounded-br-lg'
+            : 'bg-gray-800 rounded-bl-lg'
+        } prose prose-sm prose-invert`}
+      >
+        {/* Copy Button for Bot Messages */}
+        {message.sender === 'bot' && (
+          <button
+            onClick={handleCopy}
+            className="absolute top-2 right-2 p-1.5 bg-gray-700 rounded-lg text-gray-300
+                       opacity-0 group-hover:opacity-100 transition-opacity
+                       hover:bg-gray-600 focus:outline-none"
+            title="Copy text"
+          >
+            {isCopied ? (
+              <span className="text-xs">Copied!</span>
+            ) : (
+              <CopyIcon />
+            )}
+          </button>
+        )}
+
+        {/* Markdown Renderer for Bot Responses */}
+        <ReactMarkdown
+          components={{
+            code({ node, inline, className, children, ...props }) {
+              const match = /language-(\w+)/.exec(className || '');
+              return !inline && match ? (
+                <SyntaxHighlighter
+                  style={vscDarkPlus}
+                  language={match[1]}
+                  PreTag="div"
+                  {...props}
+                >
+                  {String(children).replace(/\n$/, '')}
+                </SyntaxHighlighter>
+              ) : (
+                <code className="text-amber-400" {...props}>
+                  {children}
+                </code>
+              );
+            },
+            p: ({ node, ...props }) => <p className="mb-0" {...props} />, // Fix extra margin
+          }}
+        >
+          {message.text}
+        </ReactMarkdown>
+      </div>
+    </motion.div>
+  );
+};
+
+// --- NEW: Pulsing Dots Loading Indicator ---
+const LoadingIndicator = () => (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
+    className="flex justify-start"
+  >
+    <div className="max-w-xs lg:max-w-md px-4 py-3 rounded-2xl bg-gray-800 rounded-bl-lg">
+      <div className="flex space-x-1.5">
+        <motion.div
+          className="w-2 h-2 bg-gray-400 rounded-full"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="w-2 h-2 bg-gray-400 rounded-full"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{
+            duration: 1,
+            repeat: Infinity,
+            delay: 0.2,
+            ease: 'easeInOut',
+          }}
+        />
+        <motion.div
+          className="w-2 h-2 bg-gray-400 rounded-full"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{
+            duration: 1,
+            repeat: Infinity,
+            delay: 0.4,
+            ease: 'easeInOut',
+          }}
+        />
+      </div>
+    </div>
+  </motion.div>
+);
+
 // --- Main Chatbot Component ---
 export default function AiChatbot() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Auto-scroll to bottom
@@ -72,40 +174,66 @@ export default function AiChatbot() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // --- ADDED: Welcome Message ---
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isLoading]);
 
   // Handle user message submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const userMessage = input.trim();
-    if (!userMessage) return;
+    if (!userMessage || isLoading) return;
 
-    // Add user message
     setMessages((prev) => [
       ...prev,
       { id: Date.now(), text: userMessage, sender: 'user' },
     ]);
 
-    // Clear input
     setInput('');
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      // Simple logic for bot response
-      let botText = 'This is a simulated response.';
-      if (userMessage.toLowerCase().includes('hello')) {
-        botText = 'Hi there! How can I help you today?';
-      } else if (userMessage.toLowerCase().includes('react')) {
-        botText = 'React is a great library for building user interfaces!';
+    // --- UPDATED SYSTEM PROMPT ---
+    const systemPrompt =
+      'You are a helpful chatbot. Be concise and friendly. Format code snippets using markdown code blocks.';
+
+    try {
+      const response = await fetch('http://localhost:5001/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: userMessage,
+          systemPrompt: systemPrompt,
+          service: 'llama', // This selects the Llama service in your backend
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
+      const botText = data.text;
 
       setMessages((prev) => [
         ...prev,
         { id: Date.now() + 1, text: botText, sender: 'bot' },
       ]);
-    }, 1000); // 1-second delay
+    } catch (error) {
+      console.error('Failed to fetch response:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          text: 'Sorry, I ran into an error. Please try again.',
+          sender: 'bot',
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle clearing the chat
@@ -115,23 +243,19 @@ export default function AiChatbot() {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white relative overflow-hidden">
-      {/* Animated Background */}
       <AnimatedBackground />
 
-      {/* Main Content (relative to bg) */}
       <div className="relative z-10 flex flex-col h-full">
-        {/* Header */}
         <header className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/50 backdrop-blur-sm">
           <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400">
             <GradientText
-  colors={["#40ffaa", "#4079ff", "#40ffaa", "#4079ff", "#40ffaa"]}
-  animationSpeed={3}
-  showBorder={false}
-  className="custom-class"
->
-  <b>AI Chatbot</b>
-</GradientText>
-
+              colors={['#40ffaa', '#4079ff', '#40ffaa', '#4079ff', '#40ffaa']}
+              animationSpeed={3}
+              showBorder={false}
+              className="custom-class"
+            >
+              <b>AI Chatbot</b>
+            </GradientText>
           </h1>
           <button
             onClick={clearChat}
@@ -145,29 +269,15 @@ export default function AiChatbot() {
         {/* Chat Messages */}
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
           <AnimatePresence>
+            {/* Use the new ChatMessage component */}
             {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className={`flex ${
-                  msg.sender === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-                    msg.sender === 'user'
-                      ? 'bg-blue-600 rounded-br-lg' // Blue accent
-                      : 'bg-gray-800 rounded-bl-lg'
-                  }`}
-                >
-                  <p className="text-sm">{msg.text}</p>
-                </div>
-              </motion.div>
+              <ChatMessage key={msg.id} message={msg} />
             ))}
           </AnimatePresence>
+
+          {/* Use the new LoadingIndicator component */}
+          {isLoading && <LoadingIndicator />}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -184,16 +294,17 @@ export default function AiChatbot() {
               placeholder="Type your message..."
               className="flex-grow px-4 py-3 bg-gray-800 text-white rounded-full
                          border border-transparent
-                         focus:outline-none focus:ring-2 focus:ring-yellow-500 // Yellow accent
+                         focus:outline-none focus:ring-2 focus:ring-yellow-500
                          transition-all"
+              disabled={isLoading}
             />
             <button
               type="submit"
               className="flex-shrink-0 w-12 h-12 flex items-center justify-center
-                         bg-green-600 text-white rounded-full // Green accent
+                         bg-green-600 text-white rounded-full
                          hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400
                          transition-colors disabled:opacity-50"
-              disabled={!input.trim()}
+              disabled={!input.trim() || isLoading}
             >
               <SendIcon />
             </button>
