@@ -2,6 +2,7 @@
 const geminiService = require('../services/gemini.service');
 const llamaService = require('../services/llama.service');
 const ollamaService=require('../services/ollama.service');
+const openrouterService=require('../services/openrouter.service');
 
 const handleGeneration = async (req, res) => {
   // Get all three inputs from the React app
@@ -28,6 +29,9 @@ const handleGeneration = async (req, res) => {
         // Pass both prompts to the local ollama service
         result = await ollamaService.generate(prompt, systemPrompt);
         break;
+      case 'openrouter':
+        result = await openrouterService.generate(prompt, systemPrompt);
+        break;
 
       default:
         return res.status(400).json({ error: 'Invalid service selected.' });

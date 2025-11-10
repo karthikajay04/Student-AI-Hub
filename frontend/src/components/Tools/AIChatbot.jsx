@@ -206,7 +206,7 @@ export default function AiChatbot() {
         body: JSON.stringify({
           prompt: userMessage,
           systemPrompt: systemPrompt,
-          service: 'llama', // This selects the Llama service in your backend
+          service: 'openrouter', // This selects the Llama,openrouter service in your backend
         }),
       });
 
