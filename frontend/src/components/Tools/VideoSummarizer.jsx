@@ -1,37 +1,73 @@
 import React from 'react';
+import axios from 'axios';
 
 function VideoSummarizer() {
-  // Changed `file` state to `videoUrl` state
   const [videoUrl, setVideoUrl] = React.useState('');
-  const [progress, setProgress] = React.useState(0);
+  const [transcriptText, setTranscriptText] = React.useState('');
+  const [requiresManualTranscript, setRequiresManualTranscript] = React.useState(false);
+  const [isSummarizing, setIsSummarizing] = React.useState(false);
   const [summary, setSummary] = React.useState('');
+  const [error, setError] = React.useState('');
 
-  // Removed onDrop, onPick, onChange, and inputRef as they are no longer needed
+  async function summarize() {
+    if (!videoUrl.trim()) return;
 
-  function summarize() {
-    // Check for videoUrl instead of file
-    if (!videoUrl) return;
-
-    // Validate the URL (simple check)
+    // Basic URL validation
     if (!videoUrl.startsWith('http://') && !videoUrl.startsWith('https://')) {
-      alert('Please enter a valid video URL (e.g., http://... or https://...)');
+      setError('Please enter a valid video URL (e.g., http://... or https://...)');
       return;
     }
 
+    // If manual transcript is required but not provided, show error
+    if (requiresManualTranscript && !transcriptText.trim()) {
+      setError('Please paste the video transcript in the text area below.');
+      return;
+    }
+
+    setIsSummarizing(true);
+    setError('');
     setSummary('');
-    setProgress(0);
-    const steps = [10, 25, 50, 70, 100];
-    let i = 0;
-    const id = setInterval(() => {
-      setProgress(steps[i]);
-      i++;
-      if (i === steps.length) {
-        clearInterval(id);
-        setSummary(
-          'This video discusses core data structures and algorithms, presenting practical examples and a concise review of complexity.'
-        );
+
+    const backendUrl = "http://localhost:5001";
+
+    try {
+      const requestData = {
+        videoUrl: videoUrl.trim(),
+        service: "openrouter",
+      };
+
+      // Include transcript if manually provided
+      if (transcriptText.trim()) {
+        requestData.transcriptText = transcriptText.trim();
       }
-    }, 300);
+
+      const response = await axios.post(`${backendUrl}/api/summarize-video`, requestData);
+
+      // Check if manual transcript is required
+      if (response.data.requiresManualTranscript) {
+        setRequiresManualTranscript(true);
+        setError(response.data.error);
+        return;
+      }
+
+      setSummary(response.data.summary);
+      setRequiresManualTranscript(false); // Reset if successful
+    } catch (err) {
+      console.error("Video summarization error:", err);
+
+      if (err.response?.data?.requiresManualTranscript) {
+        setRequiresManualTranscript(true);
+        setError(err.response.data.error);
+      } else {
+        let errorMsg = "An error occurred. Please try again.";
+        if (err.response?.data?.error) {
+          errorMsg = `Error: ${err.response.data.error}`;
+        }
+        setError(errorMsg);
+      }
+    } finally {
+      setIsSummarizing(false);
+    }
   }
 
   return (
@@ -45,7 +81,7 @@ function VideoSummarizer() {
 
         {/* Removed file input and drag-and-drop area */}
 
-        {/* Added new URL input field */}
+        {/* Video URL input field */}
         <div className="my-6">
           <label htmlFor="video-url" className="block text-sm font-medium text-gray-300 mb-2">
             Video Link
@@ -63,42 +99,66 @@ function VideoSummarizer() {
           />
         </div>
 
-        {progress > 0 && progress < 100 && (
-          <div className="w-full bg-gray-800 h-2 rounded-full mt-6">
-            <div
-              className="bg-gradient-to-r from-blue-400 via-red-400 to-yellow-400 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
+        {/* Manual transcript input (shown when required) */}
+        {requiresManualTranscript && (
+          <div className="my-6">
+            <label htmlFor="transcript-text" className="block text-sm font-medium text-gray-300 mb-2">
+              Video Transcript (Required)
+            </label>
+            <textarea
+              id="transcript-text"
+              value={transcriptText}
+              onChange={(e) => setTranscriptText(e.target.value)}
+              placeholder="Paste the video transcript here..."
+              rows={8}
+              className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg
+                         border border-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-blue-500
+                         transition-all resize-none"
             />
+            <p className="text-sm text-gray-400 mt-2">
+              💡 Tip: You can get the transcript by clicking the CC button on YouTube and copying the text.
+            </p>
           </div>
         )}
 
+
+
         <div className="flex justify-center gap-4 mt-8">
           <button
-            className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg font-semibold transition
-                       disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`px-6 py-2 rounded-lg font-semibold transition ${
+              isSummarizing
+                ? "bg-blue-800 text-zinc-300 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
             onClick={summarize}
-            // Disable button if videoUrl is empty
-            disabled={!videoUrl}
+            disabled={isSummarizing || !videoUrl.trim()}
           >
-            Summarize Video
+            {isSummarizing ? "Summarizing…" : "Summarize Video"}
           </button>
           <button
             className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg font-semibold transition"
             onClick={() => {
-              // Reset videoUrl instead of file
               setVideoUrl('');
-              setProgress(0);
+              setTranscriptText('');
+              setRequiresManualTranscript(false);
               setSummary('');
+              setError('');
             }}
           >
-            Reset
+            Clear
           </button>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mt-4 text-center text-red-400">{error}</div>
+        )}
 
         <div className="mt-10 bg-gray-900 p-6 rounded-xl border border-gray-700">
           <h3 className="text-lg font-semibold text-yellow-400 mb-2">Summary</h3>
           <p className="text-gray-300">
-            {summary || '// The summary will appear here after processing.'}
+            {summary || "// The summary will appear here after processing."}
           </p>
         </div>
       </div>

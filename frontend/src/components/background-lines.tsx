@@ -17,7 +17,7 @@ export const BackgroundLines = ({
   return (
     <div
       className={cn(
-        "h-[20rem] md:h-screen w-full bg-white dark:bg-black",
+        "h-screen w-full bg-white dark:bg-black",
         className
       )}
     >
@@ -92,7 +92,7 @@ const SVG = ({
   ];
   return (
     <motion.svg
-      viewBox="0 0 1440 900"
+      viewBox="0 -100 1440 1400"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       initial={{ opacity: 0 }}

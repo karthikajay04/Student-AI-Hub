@@ -1,20 +1,89 @@
 import React from "react";
+import axios from "axios";
 
 function TextSummarizer() {
   const [text, setText] = React.useState("");
+  const [file, setFile] = React.useState(null);
   const [isSummarizing, setIsSummarizing] = React.useState(false);
   const [summary, setSummary] = React.useState("");
+  const [error, setError] = React.useState("");
+  const inputRef = React.useRef(null);
 
-  function summarize() {
-    if (!text.trim()) return;
+  // --- File Handling ---
+
+  function onDrop(e) {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (f) {
+      setFile(f);
+      setText("");
+      setSummary("");
+      setError("");
+    }
+  }
+
+  function onPick() {
+    inputRef.current?.click();
+  }
+
+  function onChange(e) {
+    const f = e.target.files?.[0];
+    if (f) {
+      setFile(f);
+      setText("");
+      setSummary("");
+      setError("");
+    }
+  }
+
+  // --- API Call ---
+
+  async function summarize() {
     setIsSummarizing(true);
+    setError("");
     setSummary("");
-    setTimeout(() => {
-      setSummary(
-        "This text covers key concepts in a concise manner, highlighting the most important points and takeaways."
-      );
+
+    const backendUrl = "http://localhost:5001";
+
+    try {
+      // --- FILE MODE ---
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("service", "openrouter");
+
+        const response = await axios.post(
+          `${backendUrl}/api/summarize-text`,
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+
+        setSummary(response.data.summary);
+      }
+
+      // --- TEXT MODE ---
+      else if (text.trim()) {
+        const response = await axios.post(`${backendUrl}/api/generate`, {
+          prompt: `Please provide a concise summary of the following text. Keep it brief but capture all the key points and main ideas.\n\nText: ${text}`,
+          service: "openrouter",
+        });
+
+        setSummary(response.data.text);
+      } else {
+        setError("Please upload a file or paste text first.");
+      }
+    } catch (err) {
+      console.error("Summarization Error:", err);
+      let errorMsg = "An error occurred. Please try again.";
+
+      if (err.response?.data?.error) {
+        errorMsg = `Error: ${err.response.data.error}`;
+      }
+
+      setError(errorMsg);
+    } finally {
       setIsSummarizing(false);
-    }, 700);
+    }
   }
 
   return (
@@ -24,14 +93,50 @@ function TextSummarizer() {
           Text Summarizer
         </h2>
         <p className="text-zinc-400 mb-6 text-center">
-          Paste text to get a quick TL;DR summary.
+          Upload a file (PDF/TXT) or paste text to get a quick TL;DR summary.
         </p>
+
+        {/* Hidden File Input */}
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,.txt"
+          className="hidden"
+          onChange={onChange}
+        />
+
+        {/* Drag-and-drop Zone */}
+        <div
+          className="w-full border-2 border-dashed border-zinc-700 rounded-xl p-6 text-center cursor-pointer hover:border-blue-500 transition mb-4"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={onDrop}
+          onClick={onPick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) =>
+            (e.key === "Enter" || e.key === " ") && onPick()
+          }
+        >
+          {file ? (
+            <div className="text-yellow-400 font-semibold">
+              Selected: <span className="text-white">{file.name}</span>
+            </div>
+          ) : (
+            <div className="text-gray-400">
+              Drag & drop a file here, or click to browse{" "}
+              <span className="text-red-400">(PDF or TXT)</span>
+            </div>
+          )}
+        </div>
 
         <textarea
           className="w-full h-48 p-4 rounded-xl bg-zinc-950 border border-zinc-800 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          placeholder="Paste or type text here..."
+          placeholder="Or paste text here..."
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setFile(null);
+          }}
         />
 
         <div className="flex justify-center gap-4 mt-6 flex-wrap">
@@ -50,13 +155,20 @@ function TextSummarizer() {
           <button
             onClick={() => {
               setText("");
+              setFile(null);
               setSummary("");
+              setError("");
             }}
             className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition-all"
           >
             Clear
           </button>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mt-4 text-center text-red-400">{error}</div>
+        )}
 
         <div className="mt-8 p-4 rounded-xl bg-zinc-950 border border-zinc-800">
           <strong className="block text-yellow-400 mb-2 text-lg">

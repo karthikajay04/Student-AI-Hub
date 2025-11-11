@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const aiController = require('../controllers/ai.controller');
 const resumeController = require('../controllers/resume.controller');
+const youtubeController = require('../controllers/youtube.controller');
 const multer = require('multer');
 
 // -------------------- AI GENERATION ROUTES --------------------
@@ -23,6 +24,12 @@ const upload = multer({ dest: 'uploads/' });
 
 // 🔹 Resume analysis route
 router.post('/analyze-resume', upload.single('resume'), resumeController.handleResume);
+
+// 🔹 Text summarization route
+router.post('/summarize-text', upload.single('file'), resumeController.handleTextSummarization);
+
+// 🔹 Video summarization route
+router.post('/summarize-video', youtubeController.handleVideoSummary);
 
 // ---------------------------------------------------------------
 // You can add other routes here later

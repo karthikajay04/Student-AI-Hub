@@ -1,81 +1,191 @@
-// ... other imports
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-// Assuming genAI is initialized here or passed in
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// src/services/resume.service.js
+const fs = require("fs");
+const pdf = require("pdf-parse");
+const llamaService = require("./llama.service");
+const openrouterService = require("./openrouter.service");
+const cerebrasService = require("./cerebras.service");
 
 /**
- * UPDATED: Now accepts filePath and mimetype directly
+ * Extracts text from PDF or text-based files.
  */
-async function uploadFileToGemini(filePath, mimetype) {
+async function extractText(filePath, mimetype) {
   try {
-    // 'file' is the object from multer, e.g., req.file
-    // 'file.path' is the path to the temp file saved by multer
-    // 'file.mimetype' is the file's MIME type
+    if (mimetype === "application/pdf") {
+      const dataBuffer = fs.readFileSync(filePath);
+      const data = await pdf(dataBuffer);
+      const extractedText = data.text.trim();
 
-    console.log(`Uploading file: ${filePath} (${mimetype})`);
+      // Check if PDF contains meaningful text
+      if (extractedText.length < 50) {
+        throw new Error("PDF appears to be image-based or contains very little text. Please use a text-based PDF or paste the resume text directly in the text area.");
+      }
 
-    // --- THIS IS THE FIX ---
-    // Change from genAI.uploadFile to genAI.files.uploadFile
-    const uploadedFileResponse = await genAI.files.uploadFile(filePath, {
-      mimeType: mimetype,
-      displayName: "resume-upload", // Using a generic name
-    });
-    // --- END OF FIX ---
+      return extractedText;
+    }
 
-    // The response contains the file object
-    const uploadedFile = uploadedFileResponse.file;
-    
-    console.log(`Successfully uploaded file: ${uploadedFile.name} (${uploadedFile.uri})`);
+    if (mimetype.startsWith("text/")) {
+      return fs.readFileSync(filePath, "utf8");
+    }
 
-    // Return the file object (which contains the 'name' and 'uri')
-    return uploadedFile;
-
+    throw new Error(`Unsupported file type: ${mimetype}`);
   } catch (error) {
-    // This will now log the *original* error, which is more helpful
-    console.error("Original error in uploadFileToGemini:", error); 
-    
-    // This passes the original error message along
-    throw new Error(`Failed to upload file to Gemini: ${error.message}`);
+    console.error("❌ Error extracting text:", error);
+    throw new Error("Failed to extract text from file.");
   }
 }
 
 /**
- * UPDATED: Now accepts filePath, mimetype, and the systemPrompt
+ * Analyzes a resume using the selected AI service (llama, openrouter, cerebras).
  */
-async function analyzeFile(filePath, mimetype, systemPrompt) {
-  // 1. Upload the file first
-  const uploadedFile = await uploadFileToGemini(filePath, mimetype);
+async function analyzeFile(
+  filePath,
+  mimetype,
+  systemPrompt,
+  service = "openrouter"
+) {
+  try {
+    // 1️⃣ Extract resume text
+    const resumeText = await extractText(filePath, mimetype);
 
-  // 2. Now you can use the file in a prompt
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash",
-    // 3. Use the systemPrompt from the controller
-    systemInstruction: systemPrompt,
-    // 4. Tell the model to output JSON
-    generationConfig: { responseMimeType: "application/json" }
-  });
+    // 2️⃣ AI system prompt
+    const jsonPrompt = `
+      ${systemPrompt}
 
-  // 5. The hardcoded prompt is no longer needed here.
-  // We just need to provide the file as context.
-  const result = await model.generateContent([
-    "Please analyze the attached resume.", // Simple instruction
-    {
-      fileData: {
-        mimeType: uploadedFile.mimeType,
-        fileUri: uploadedFile.uri,
-      },
-    },
-  ]);
+      Resume text to analyze:
+      ${resumeText}
 
-  const response = result.response;
-  const text = response.text();
-  
-  // 6. Parse the JSON text into an object before returning
-  return JSON.parse(text);
+      IMPORTANT: Respond with ONLY a valid JSON object. Do not include any text before or after the JSON. The response must start with { and end with }.
+    `;
+
+    // 3️⃣ Choose the AI model
+    let result;
+    switch (service) {
+      case "llama":
+        result = await llamaService.generate(jsonPrompt, "");
+        break;
+      case "cerebras":
+        result = await cerebrasService.generate(jsonPrompt, "");
+        break;
+      default:
+        result = await openrouterService.generate(jsonPrompt, "");
+        break;
+    }
+
+    const rawOutput = result.text.trim();
+
+    // 4️⃣ Extract JSON safely (avoid model text noise)
+    let jsonString = rawOutput;
+
+    // Try to find JSON object in the response
+    const jsonMatch = rawOutput.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonString = jsonMatch[0];
+    }
+
+    // Clean up common issues
+    jsonString = jsonString
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // Remove control characters
+      .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+      .trim();
+
+    try {
+      const parsed = JSON.parse(jsonString);
+
+      // Validate that we have the expected structure
+      if (typeof parsed.score === 'number' && Array.isArray(parsed.tips)) {
+        return parsed;
+      } else {
+        throw new Error("JSON does not contain expected score and tips fields.");
+      }
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
+    }
+  } catch (error) {
+    console.error("💥 Resume analysis error:", error);
+    throw new Error("Failed to analyze resume.");
+  }
 }
 
-module.exports = {
-  analyzeFile,
-  // ... any other exports
-};
+/**
+ * Summarizes text using the selected AI service.
+ */
+async function summarizeText(text, service = "openrouter") {
+  try {
+    const summaryPrompt = `
+      Please provide a concise summary of the following text. Keep it brief but capture all the key points and main ideas.
+
+      Text to summarize:
+      ${text}
+
+      Summary:
+    `;
+
+    let result;
+    switch (service) {
+      case "llama":
+        result = await llamaService.generate(summaryPrompt, "");
+        break;
+      case "cerebras":
+        result = await cerebrasService.generate(summaryPrompt, "");
+        break;
+      default:
+        result = await openrouterService.generate(summaryPrompt, "");
+        break;
+    }
+
+    return result.text.trim();
+  } catch (error) {
+    console.error("Summarization error:", error);
+    throw new Error("Failed to summarize text.");
+  }
+}
+
+/**
+ * Extracts transcript from YouTube video URL.
+ * Note: This is a placeholder implementation. In production, you would need:
+ * - YouTube Data API or a transcript extraction service
+ * - Proper error handling for videos without captions
+ */
+async function extractVideoTranscript(videoUrl) {
+  try {
+    // Extract video ID from YouTube URL
+    const videoId = extractYouTubeVideoId(videoUrl);
+    if (!videoId) {
+      throw new Error('Invalid YouTube URL. Please provide a valid YouTube video link.');
+    }
+
+    // Placeholder: In a real implementation, you would:
+    // 1. Use YouTube's caption API or a third-party service
+    // 2. Fetch available transcripts/captions
+    // 3. Return the transcript text
+
+    // For now, return a placeholder message
+    throw new Error('Video transcript extraction is not yet implemented. This would require YouTube API integration or a transcript service. Please paste the video transcript text directly in the text summarizer instead.');
+
+  } catch (error) {
+    console.error("Video transcript extraction error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Extracts YouTube video ID from various URL formats
+ */
+function extractYouTubeVideoId(url) {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/v\/([^&\n?#]+)/
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+module.exports = { analyzeFile, summarizeText, extractText, extractVideoTranscript };
