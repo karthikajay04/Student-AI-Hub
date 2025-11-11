@@ -5,17 +5,32 @@ function Debugger() {
   const [isDebugging, setIsDebugging] = React.useState(false);
   const [result, setResult] = React.useState("");
 
-  function debug() {
-    if (!code.trim()) return;
-    setIsDebugging(true);
-    setResult("");
-    setTimeout(() => {
-      setResult(
-        "✅ No syntax errors found.\n💡 Potential improvement: handle edge case when input is null."
-      );
-      setIsDebugging(false);
-    }, 900);
+ async function debug() {
+  if (!code.trim()) return;
+  setIsDebugging(true);
+  setResult("");
+
+  try {
+    const response = await fetch("http://localhost:5001/api/debug", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+
+    const data = await response.json();
+
+    if (data.output) {
+      setResult(data.output.trim());
+    } else {
+      setResult("// Error: Could not analyze code.");
+    }
+  } catch (error) {
+    console.error("Frontend error:", error);
+    setResult("// Error: Failed to connect to backend.");
   }
+
+  setIsDebugging(false);
+}
 
   return (
     <section className="min-h-screen bg-black text-white flex items-center justify-center p-6">

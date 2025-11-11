@@ -5,19 +5,35 @@ function CodeGenerator() {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [output, setOutput] = React.useState("");
 
-  function generate() {
-    if (!prompt.trim()) return;
-    setIsGenerating(true);
-    setOutput("");
-    setTimeout(() => {
-      setOutput(
-        `// Generated code example\nfunction greet(name) {\n  return ` +
-          "`Hello, ${name}!`" +
-          `;\n}\n\nconsole.log(greet('World'));`
-      );
-      setIsGenerating(false);
-    }, 800);
+ async function generate() {
+  if (!prompt.trim()) return;
+  setIsGenerating(true);
+  setOutput("");
+
+  try {
+    const response = await fetch("http://localhost:5001/api/codegen", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    });
+
+    const data = await response.json();
+
+    if (data.output) {
+      setOutput(data.output.trim());
+    } else {
+      setOutput("// Error: Could not generate code.");
+    }
+  } catch (error) {
+    console.error("Frontend error:", error);
+    setOutput("// Error: Failed to connect to backend.");
   }
+
+  setIsGenerating(false);
+}
+
 
   function copyToClipboard() {
     if (!output) return;
