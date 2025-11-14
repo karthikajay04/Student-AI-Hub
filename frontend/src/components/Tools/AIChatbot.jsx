@@ -1,19 +1,77 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import GradientText from '../AnimatedText/GradientText';
 
-// --- NEW IMPORTS ---
+// --- STUB for GradientText ---
+// Assuming GradientText is in a relative path and works as intended
+// If not, adjust this import
+// import GradientText from '../AnimatedText/GradientText';
+
+// Using a simple span for GradientText as the component is not provided
+// This allows the file to be valid JSX
+const GradientText = ({ children, ...props }) => (
+  <span
+    {...props}
+    className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400"
+  >
+    {children}
+  </span>
+);
+// --- END STUB ---
+
+// --- MODIFIED IMPORTS ---
+// Removed react-syntax-highlighter and react-icons
+// We will use ReactMarkdown but without the highlighter
 import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { FiCopy } from 'react-icons/fi'; // Copy Icon
-import { LuTrash2 } from 'react-icons/lu'; // Better Trash Icon
-import { IoSend } from 'react-icons/io5'; // Better Send Icon
 
-// --- ICONS ---
-const SendIcon = () => <IoSend className="w-5 h-5" />;
-const TrashIcon = () => <LuTrash2 className="w-5 h-5" />;
-const CopyIcon = () => <FiCopy className="w-4 h-4" />;
+// --- INLINE ICONS (Replaced react-icons) ---
+
+// Replaced IoSend
+const SendIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className="w-5 h-5"
+  >
+    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+  </svg>
+);
+
+// Replaced LuTrash2
+const TrashIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-5 h-5"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12.578 0c-.27.004-.537.01-.804.018m0 0a48.108 48.108 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+    />
+  </svg>
+);
+
+// Replaced FiCopy
+const CopyIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-4 h-4"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876S5.25 2.25 5.25 6.75V15"
+    />
+  </svg>
+);
 
 // --- Animated Background Component ---
 const AnimatedBackground = () => (
@@ -40,17 +98,48 @@ const AnimatedBackground = () => (
   </div>
 );
 
-// --- NEW: Chat Message Component (Handles Copy Button & Markdown) ---
+// --- Chat Message Component (Handles Copy Button & Markdown) ---
 const ChatMessage = ({ message }) => {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
     // Use clipboard API to copy text
-    navigator.clipboard.writeText(message.text).then(() => {
+    // Fallback for non-secure contexts (like http://localhost)
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(message.text).then(
+        () => {
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+        },
+        (err) => {
+          console.error('Clipboard API failed:', err);
+          // Try fallback if permission denied or other error
+          copyFallback();
+        }
+      );
+    } else {
+      copyFallback();
+    }
+  };
+
+  // Fallback for document.execCommand (e.g., http)
+  const copyFallback = () => {
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = message.text;
+      // Make it non-editable and invisible
+      textArea.style.position = 'absolute';
+      textArea.style.left = '-9999px';
+      textArea.setAttribute('readonly', '');
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
       setIsCopied(true);
-      // Reset "Copied!" text after 2 seconds
       setTimeout(() => setIsCopied(false), 2000);
-    });
+    } catch (err) {
+      console.error('Failed to copy text with fallback:', err);
+    }
   };
 
   return (
@@ -64,10 +153,6 @@ const ChatMessage = ({ message }) => {
         message.sender === 'user' ? 'justify-end' : 'justify-start'
       }`}
     >
-      {/* ** THIS IS THE FIX **
-          The 'prose' classes are moved to this parent div
-          to fix the react-markdown error.
-      */}
       <div
         className={`relative max-w-xs lg:max-w-2xl px-4 py-3 rounded-2xl group ${
           message.sender === 'user'
@@ -93,19 +178,16 @@ const ChatMessage = ({ message }) => {
         )}
 
         {/* Markdown Renderer for Bot Responses */}
+        {/* UPDATED: Removed SyntaxHighlighter, using simple <pre><code> for blocks */}
         <ReactMarkdown
           components={{
             code({ node, inline, className, children, ...props }) {
-              const match = /language-(\w+)/.exec(className || '');
-              return !inline && match ? (
-                <SyntaxHighlighter
-                  style={vscDarkPlus}
-                  language={match[1]}
-                  PreTag="div"
-                  {...props}
-                >
-                  {String(children).replace(/\n$/, '')}
-                </SyntaxHighlighter>
+              return !inline ? (
+                <pre className="bg-gray-900 p-2 rounded-md overflow-x-auto">
+                  <code {...props}>
+                    {String(children).replace(/\n$/, '')}
+                  </code>
+                </pre>
               ) : (
                 <code className="text-amber-400" {...props}>
                   {children}
@@ -122,7 +204,7 @@ const ChatMessage = ({ message }) => {
   );
 };
 
-// --- NEW: Pulsing Dots Loading Indicator ---
+// --- Pulsing Dots Loading Indicator ---
 const LoadingIndicator = () => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
@@ -167,6 +249,10 @@ export default function AiChatbot() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // --- NEW STATE FOR SERVICE SELECTION ---
+  const [selectedService, setSelectedService] = useState('cerebras'); // Default service
+
   const messagesEndRef = useRef(null);
 
   // Auto-scroll to bottom
@@ -174,10 +260,21 @@ export default function AiChatbot() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // --- ADDED: Welcome Message ---
+  // Scroll on new message or loading change
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  // --- ADDED: Welcome Message on initial load ---
+  useEffect(() => {
+    setMessages([
+      {
+        id: Date.now(),
+        text: "Hi! I'm an AI chatbot.",
+        sender: 'bot',
+      },
+    ]);
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   // Handle user message submission
   const handleSubmit = async (e) => {
@@ -193,7 +290,6 @@ export default function AiChatbot() {
     setInput('');
     setIsLoading(true);
 
-    // --- UPDATED SYSTEM PROMPT ---
     const systemPrompt =
       'You are a helpful chatbot. Be concise and friendly. Format code snippets using markdown code blocks.';
 
@@ -206,7 +302,8 @@ export default function AiChatbot() {
         body: JSON.stringify({
           prompt: userMessage,
           systemPrompt: systemPrompt,
-          service: 'cerebras', // This selects the Llama,openrouter service in your backend
+          // --- PASS THE SELECTED SERVICE FROM STATE ---
+          service: selectedService,
         }),
       });
 
@@ -238,7 +335,14 @@ export default function AiChatbot() {
 
   // Handle clearing the chat
   const clearChat = () => {
-    setMessages([]);
+    setMessages([
+      // Reset to a clear state with a message
+      {
+        id: Date.now(),
+        text: 'Chat cleared! How can I help you next?',
+        sender: 'bot',
+      },
+    ]);
   };
 
   return (
@@ -247,7 +351,7 @@ export default function AiChatbot() {
 
       <div className="relative z-10 flex flex-col h-full">
         <header className="p-4 border-b border-gray-800 flex justify-between items-center bg-black/50 backdrop-blur-sm">
-          <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400">
+          <h1 className="text-xl font-bold">
             <GradientText
               colors={['#40ffaa', '#4079ff', '#40ffaa', '#4079ff', '#40ffaa']}
               animationSpeed={3}
@@ -269,13 +373,11 @@ export default function AiChatbot() {
         {/* Chat Messages */}
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
           <AnimatePresence>
-            {/* Use the new ChatMessage component */}
             {messages.map((msg) => (
               <ChatMessage key={msg.id} message={msg} />
             ))}
           </AnimatePresence>
 
-          {/* Use the new LoadingIndicator component */}
           {isLoading && <LoadingIndicator />}
 
           <div ref={messagesEndRef} />
@@ -287,17 +389,42 @@ export default function AiChatbot() {
             onSubmit={handleSubmit}
             className="flex items-center space-x-2"
           >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-grow px-4 py-3 bg-gray-800 text-white rounded-full
-                         border border-transparent
-                         focus:outline-none focus:ring-2 focus:ring-yellow-500
-                         transition-all"
-              disabled={isLoading}
-            />
+            {/* --- MODIFIED INPUT AND NEW SELECT GROUP --- */}
+            <div
+              className="flex-grow flex items-center bg-gray-800 rounded-full
+                            border border-transparent
+                            focus-within:ring-2 focus-within:ring-yellow-500
+                            transition-all"
+            >
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-grow px-4 py-3 bg-transparent text-white
+                           rounded-l-full
+                           focus:outline-none"
+                disabled={isLoading}
+              />
+              <select
+                value={selectedService}
+                onChange={(e) => setSelectedService(e.target.value)}
+                disabled={isLoading}
+                className="bg-gray-800 text-gray-300 text-sm rounded-r-full
+                           py-3 pl-2 pr-4
+                           border-l border-gray-700
+                           focus:outline-none cursor-pointer
+                           hover:text-white"
+                aria-label="Select AI Model"
+              >
+                <option value="cerebras">Cerebras</option>
+                <option value="llama">Llama</option>
+                <option value="deepseek">Deepseek (takes ~1 min)</option>
+                <option value="openrouter">OpenRouter</option>
+              </select>
+            </div>
+            {/* --- END OF MODIFIED GROUP --- */}
+
             <button
               type="submit"
               className="flex-shrink-0 w-12 h-12 flex items-center justify-center

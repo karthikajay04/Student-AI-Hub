@@ -16,21 +16,21 @@ export function AnimatedTestimonialsDemo() {
     },
     {
       quote:
-        "Implementation was seamless and the results exceeded our expectations. The platform's flexibility is remarkable.",
+        "The heavy lifting on the backend is done; the system logic is solid and ready to power our workflows. I've pivoted to the client-side implementation now, and we are already seeing the visual elements of the UI coming together.",
       name: "Namit Jagadeesh",
       designation: "Team Leader",
       src: namitImg,
     },
     {
       quote:
-        "This solution has significantly improved our team's productivity. The intuitive interface makes complex tasks simple.",
+        "'ve finalized the core Standard Operating Procedures (SOPs) and process maps—the framework that will drive our workflow. With those internal standards secure, I've moved on to creating the user-facing guides and templates, which are now taking shape",
       name: "Abhishek S Thayyil",
       designation: "Documenter",
       src: abhishekImg,
     },
     {
       quote:
-        "Outstanding support and robust features. It's rare to find a product that delivers on all its promises.",
+        "I've completed the application scaffolding and routing structure—the foundation for the user journey. With the skeleton in place, I'm now focused on building out the views and interactions, and the interface is coming together nicely.",
       name: "Mahammad Mashood",
       designation: "Front-End Engineer",
       src: mashoodImg,

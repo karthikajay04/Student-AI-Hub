@@ -8,6 +8,7 @@ function VideoSummarizer() {
   const [isSummarizing, setIsSummarizing] = React.useState(false);
   const [summary, setSummary] = React.useState('');
   const [error, setError] = React.useState('');
+  const [selectedModel, setSelectedModel] = React.useState('openrouter');
 
   async function summarize() {
     if (!videoUrl.trim()) return;
@@ -33,7 +34,7 @@ function VideoSummarizer() {
     try {
       const requestData = {
         videoUrl: videoUrl.trim(),
-        service: "openrouter",
+        service: selectedModel,
       };
 
       // Include transcript if manually provided
@@ -78,6 +79,26 @@ function VideoSummarizer() {
           Paste a video link (e.g., YouTube, Vimeo) to generate a quick{' '}
           <span className="text-yellow-400">TL;DR</span>.
         </p>
+
+        {/* AI Model Selector */}
+        <div className="mb-6 flex items-center justify-between bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+          <label htmlFor="model-select" className="text-sm font-medium text-gray-300">
+            AI Model:
+          </label>
+          <select
+            id="model-select"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-600
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all
+                       cursor-pointer hover:bg-gray-700"
+          >
+            <option value="cerebras">Cerebras</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="llama">Llama</option>
+            <option value="ollama">Ollama</option>
+          </select>
+        </div>
 
         {/* Removed file input and drag-and-drop area */}
 

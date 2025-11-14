@@ -7,6 +7,7 @@ function TextSummarizer() {
   const [isSummarizing, setIsSummarizing] = React.useState(false);
   const [summary, setSummary] = React.useState("");
   const [error, setError] = React.useState("");
+  const [selectedModel, setSelectedModel] = React.useState("openrouter");
   const inputRef = React.useRef(null);
 
   // --- File Handling ---
@@ -50,7 +51,7 @@ function TextSummarizer() {
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("service", "openrouter");
+        formData.append("service", selectedModel);
 
         const response = await axios.post(
           `${backendUrl}/api/summarize-text`,
@@ -65,7 +66,7 @@ function TextSummarizer() {
       else if (text.trim()) {
         const response = await axios.post(`${backendUrl}/api/generate`, {
           prompt: `Please provide a concise summary of the following text. Keep it brief but capture all the key points and main ideas.\n\nText: ${text}`,
-          service: "openrouter",
+          service: selectedModel,
         });
 
         setSummary(response.data.text);
@@ -95,6 +96,26 @@ function TextSummarizer() {
         <p className="text-zinc-400 mb-6 text-center">
           Upload a file (PDF/TXT) or paste text to get a quick TL;DR summary.
         </p>
+
+        {/* AI Model Selector */}
+        <div className="mb-6 flex items-center justify-between bg-zinc-800/50 p-4 rounded-lg border border-zinc-700">
+          <label htmlFor="model-select" className="text-sm font-medium text-zinc-300">
+            AI Model:
+          </label>
+          <select
+            id="model-select"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="px-4 py-2 bg-zinc-800 text-white rounded-lg border border-zinc-600
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all
+                       cursor-pointer hover:bg-zinc-700"
+          >
+            <option value="cerebras">Cerebras</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="llama">Llama</option>
+            <option value="ollama">Ollama</option>
+          </select>
+        </div>
 
         {/* Hidden File Input */}
         <input
