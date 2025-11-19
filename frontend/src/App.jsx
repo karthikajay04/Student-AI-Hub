@@ -1,11 +1,12 @@
-import { useRef } from "react";
 import "./App.css";
+
 import { BackgroundLinesDemo } from "./components/BackgroundLinesDemo";
 import ChromaGrid from "./components/ChromaGrid/ChromaGrid";
 import { FloatingNavDemo } from "./components/FloatingNavDemo";
-import { WobbleCardDemo } from './components/WobbleCardDemo' ;
+import { WobbleCardDemo } from "./components/WobbleCardDemo";
 
-import {createBrowserRouter ,RouterProvider} from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+
 import CodeGenerator from "./components/Tools/CodeGenarator";
 import Debugger from "./components/Tools/Debugger";
 import VideoSummarizer from "./components/Tools/VideoSummarizer";
@@ -17,83 +18,182 @@ import RoadmapDeveloper from "./components/Tools/RoadmapDeveloper";
 import ContactPage from "./components/ContactPage";
 import ToDoList from "./components/Tools/ToDoList/ToDoList";
 
+import { Login } from "./components/login/login";
+import ProtectedRoute from "./components/ProtectedRoute";
 
-
-
-
+import { useAuth } from "@/store/auth";
 
 function App() {
+  const isLogin = useAuth((s) => s.isLogin);
 
-  
+  const router = createBrowserRouter([
+    // =========================================
+    // PUBLIC ROUTES
+    // =========================================
+    {
+      path: "/",
+      element: (
+        <>
+          {isLogin && <FloatingNavDemo />}
+          <BackgroundLinesDemo />
+        </>
+      ),
+    },
 
+    {
+      path: "/login",
+      element: <Login />,
+    },
 
-const router= createBrowserRouter([
-  {path:"/",
-    element:<><FloatingNavDemo /> <BackgroundLinesDemo /></>
-  },
-  {
-    path:"/tools",
-    element:<><FloatingNavDemo  /><div  className="bg-black pt-30 pb-10">
-        <ChromaGrid />
-      </div></>
-  },
-  {
-    path:"/about",
-    element:<><FloatingNavDemo /><WobbleCardDemo/></>
-  },
-  {
-    path:"/contact",
-    element:<><FloatingNavDemo />  <ContactPage/></>
-  },
-  {
-    path:"/tools/codegenerator",
-    element:<><FloatingNavDemo /><CodeGenerator/></>
-  },
-  {
-    path:"/tools/codedebugger",
-    element:<><FloatingNavDemo /><Debugger/></>
-  },
-  {
-    path:"/tools/videosummarizer",
-    element:<><FloatingNavDemo /> <VideoSummarizer/></>
-  },
-  {
-    path:"/tools/textsummarizer",
-    element:<><FloatingNavDemo /> <TextSummarizer/></>
-  },
-  {
-    path:"/tools/aichatbot",
-    element:<><FloatingNavDemo /> <AIChatbot/></>
-  },
-  {
-    path:"/tools/timer",
-    element:<><FloatingNavDemo /><Timmer/></>
-  },
-  {
-    path:"/tools/resumeanalyzer",
-    element:<><FloatingNavDemo /><ResumeAnalyzer/></>
-  },
-  {
-    path:"/tools/roadmapdeveloper",
-    element:<><FloatingNavDemo /><RoadmapDeveloper/></>
-  },
-  {
-    path:"/tools/todolist",
-    element:<><FloatingNavDemo /><ToDoList/></>
-  },
-])
+    {
+      path: "/about",
+      element: (
+        <>
+          {isLogin && <FloatingNavDemo />}
+          <WobbleCardDemo />
+        </>
+      ),
+    },
 
-  
+    {
+      path: "/contact",
+      element: (
+        <>
+          {isLogin && <FloatingNavDemo />}
+          <ContactPage />
+        </>
+      ),
+    },
+
+    // =========================================
+    // PROTECTED ROUTES (LOGIN REQUIRED)
+    // =========================================
+    {
+      path: "/tools",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <div className="bg-black pt-30 pb-10">
+              <ChromaGrid />
+            </div>
+          </>
+        </ProtectedRoute>
+      ),
+    },
+
+    {
+      path: "/tools/codegenerator",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <CodeGenerator />
+          </>
+        </ProtectedRoute>
+      ),
+    },
+
+    {
+      path: "/tools/codedebugger",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <Debugger />
+          </>
+        </ProtectedRoute>
+      ),
+    },
+
+    {
+      path: "/tools/videosummarizer",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <VideoSummarizer />
+          </>
+        </ProtectedRoute>
+      ),
+    },
+
+    {
+      path: "/tools/textsummarizer",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <TextSummarizer />
+          </>
+        </ProtectedRoute>
+      ),
+    },
+
+    {
+      path: "/tools/aichatbot",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <AIChatbot />
+          </>
+        </ProtectedRoute>
+      ),
+    },
+
+    {
+      path: "/tools/timer",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <Timmer />
+          </>
+        </ProtectedRoute>
+      ),
+    },
+
+    {
+      path: "/tools/resumeanalyzer",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <ResumeAnalyzer />
+          </>
+        </ProtectedRoute>
+      ),
+    },
+
+    {
+      path: "/tools/roadmapdeveloper",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <RoadmapDeveloper />
+          </>
+        </ProtectedRoute>
+      ),
+    },
+
+    {
+      path: "/tools/todolist",
+      element: (
+        <ProtectedRoute>
+          <>
+            <FloatingNavDemo />
+            <ToDoList />
+          </>
+        </ProtectedRoute>
+      ),
+    },
+  ]);
 
   return (
     <>
-      <RouterProvider router={router}/>
-
-      {/* Hero / First Section */}
-      
-
-      {/* Tools / ChromaGrid Section */}
-      
+      <RouterProvider router={router} />
     </>
   );
 }

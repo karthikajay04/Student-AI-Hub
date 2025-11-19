@@ -2,12 +2,20 @@
 import React from "react";
 import { HoverBorderGradient } from "../components/hover-border-gradient";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/store/auth";
+
 
 export function HoverBorderGradientDemo() {
+  const isLogin = useAuth((s) => s.isLogin);
+
   const navigate = useNavigate();
     const handleClick = () => {
-    navigate("/tools"); 
-  };
+  if (isLogin) {
+    navigate("/tools");   // logged in → go to tools
+  } else {
+    navigate("/login");   // not logged in → go to login page
+  }
+};
 
   return (
     <div className="mt-5 mx-40 mb-40 flex justify-center text-center">
@@ -18,7 +26,9 @@ export function HoverBorderGradientDemo() {
         className="dark:bg-black bg-white text-black dark:text-white flex items-center space-x-2 px-6 py-3"
       >
         <AceternityLogo />
-        <span>Get Started</span>
+        <span>
+  {isLogin ? "Get Started" : "Login"}
+</span>
       </HoverBorderGradient>
     </div>
   );
