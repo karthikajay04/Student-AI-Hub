@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from "axios";
+import { useAuth } from "@/store/auth";
 
 // --- SVG Icons ---
-// These are defined locally so they don't need to be imported.
-
 const HighlightIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -27,16 +27,6 @@ const SpinnerIcon = () => (
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
 );
-
-
-// --- Gemini API Call Functions ---
-//
-// These functions (fetchWithRetry and callGeminiAPI) are no longer needed.
-// The API call is now made from the CreateArea component to your backend.
-//
-// async function fetchWithRetry(url, options, retries = 3, delay = 1000) { ... }
-// ... no longer needed ...
-
 
 // --- Internal Components ---
 
@@ -110,7 +100,7 @@ function CreateArea(props) {
     setExpanded(false);
   }
 
-  // --- UPDATED to call your backend /api/generate route ---
+  // --- AI Generation Handler ---
   async function handleGenerateContent(event) {
     event.preventDefault();
     const prompt = note.content || note.title;
@@ -119,14 +109,9 @@ function CreateArea(props) {
     }
 
     setIsGenerating(true);
-    
     const systemPrompt = "You are a task breakdown assistant. The user will provide a task, title, or idea. Break it down into a concise, actionable to-do list. Use simple bullet points (e.g., '- Item 1') for the list. Do not add any introductory or concluding text, just the list.";
 
     try {
-      // 1. Call your backend's /api/generate endpoint
-      // (Using fetch, which is built-in to React, so no axios needed)
-      
-      // --- THIS LINE IS UPDATED ---
       const response = await fetch('http://localhost:5001/api/generate', {
         method: 'POST',
         headers: {
@@ -135,20 +120,17 @@ function CreateArea(props) {
         body: JSON.stringify({
           prompt: prompt,
           systemPrompt: systemPrompt,
-          service: 'llama' // Assuming your backend uses this to select the service
+          service: 'llama' 
         }),
       });
-      // --- END OF UPDATE ---
 
       if (!response.ok) {
         throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
       }
 
-      // 2. Get the text from your backend's standardized response
       const data = await response.json();
-      const generatedText = data.text; // Assumes your backend sends { "text": "..." }
+      const generatedText = data.text; 
 
-      // 3. Update your React state
       setNote(prevNote => ({
         ...prevNote,
         content: generatedText
@@ -160,7 +142,6 @@ function CreateArea(props) {
       setIsGenerating(false);
     }
   }
-  // --- END OF UPDATE ---
 
   function expand() {
     setExpanded(true);
@@ -222,32 +203,66 @@ function CreateArea(props) {
 
 // --- Main Exportable Component ---
 
-/**
- * A self-contained To-Do List application component
- * powered by the Gemini API for task breakdown.
- */
 function ToDoList() {
   const [notes, setNotes] = useState([]);
+  const token = useAuth((s) => s.token);
 
-  function addNote(newNote) {
-    setNotes((prevNotes) => [...prevNotes, newNote]);
+  // 1. Fetch notes on load from DB
+  useEffect(() => {
+    async function loadNotes() {
+      // Optional: Check if token exists before calling
+      if (!token) return;
+      
+      try {
+        const res = await axios.get("http://localhost:5001/api/notes", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setNotes(res.data);
+      } catch (err) {
+        console.error("Error fetching notes:", err);
+      }
+    }
+    loadNotes();
+  }, [token]); // Added token to dependency array to re-fetch on login
+
+  // 2. Add Note to DB
+  async function addNote(newNote) {
+    try {
+      const res = await axios.post(
+        "http://localhost:5001/api/notes",
+        newNote,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      // Use the response data (which includes the new DB ID)
+      setNotes((prev) => [res.data, ...prev]);
+    } catch (err) {
+      console.error("Error adding note:", err);
+    }
   }
 
-  function deleteNote(id) {
-    setNotes((prevNotes) => prevNotes.filter((_, index) => index !== id));
+  // 3. Delete Note from DB
+  async function deleteNote(id) {
+    try {
+      await axios.delete(`http://localhost:5001/api/notes/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Filter using the DB ID
+      setNotes((prev) => prev.filter((n) => n.id !== id));
+    } catch (err) {
+      console.error("Error deleting note:", err);
+    }
   }
 
   return (
-    // Changed back to `min-h-screen` for full-screen display.
-    // Removed `h-full` and `overflow-y-auto`.
     <div className="relative w-full min-h-screen bg-black bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] text-white font-['Montserrat',_sans_serif] px-4 pb-16">
       <Header />
       <CreateArea onAdd={addNote} />
       <div className="flex flex-wrap justify-center py-4">
-        {notes.map((noteItem, index) => (
+        {notes.map((noteItem) => (
           <Note
-            key={index}
-            id={index}
+            // Use the actual Database ID here, not the index
+            key={noteItem.id}
+            id={noteItem.id}
             title={noteItem.title}
             content={noteItem.content}
             onDelete={deleteNote}

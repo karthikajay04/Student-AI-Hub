@@ -9,6 +9,7 @@ const multer = require("multer");
 const authRoutes = require("./auth.routes");
 
 const contactRoute = require("./contact");
+const notesRoutes = require("./notes.routes");
 
 // -------------------- AI GENERATION ROUTES --------------------
 router.post('/generate', aiController.handleGeneration);
@@ -28,5 +29,8 @@ router.use("/auth", authRoutes); // correct way
 
 // contact page route
 router.use("/contact", contactRoute);
+
+// note routes
+router.use("/notes", notesRoutes);
 
 module.exports = router;
