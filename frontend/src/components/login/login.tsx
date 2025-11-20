@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SplineScene } from "@/components/login/splite";
 import { Spotlight } from "@/components/login/spotlight";
 import { motion } from "framer-motion";
@@ -15,14 +15,27 @@ import { useNavigate } from "react-router-dom";
 export function Login() {
   const [mode, setMode] = useState<"login" | "signup">("login");
 
+  const login = useAuth((s) => s.login);
+  const navigate = useNavigate();
+
+  // 🔥 Handle Google Redirect (token in URL)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const name = params.get("name");
+    const email = params.get("email");
+
+    if (token) {
+      login({ token, user: { name, email } });
+      navigate("/tools");
+    }
+  }, []);
+
   return (
     <div className="w-screen h-screen bg-black relative overflow-hidden">
-
-      {/* Background Glow */}
       <Spotlight className="-top-40 left-0 md:left-60 md:-top-20 opacity-60" fill="white" />
 
       <div className="flex flex-col md:flex-row h-full">
-
         {/* LEFT SIDE – AUTH CARD */}
         <div className="flex-1 flex items-center justify-center p-6 z-20">
           <motion.div
@@ -109,7 +122,7 @@ function AuthForm({ mode }: { mode: "login" | "signup" }) {
           password,
         });
         login(res.data);
-        navigate("/");
+        navigate("/tools");
         return;
       }
 
@@ -121,7 +134,7 @@ function AuthForm({ mode }: { mode: "login" | "signup" }) {
       });
 
       login(res.data);
-      navigate("/");
+      navigate("/tools");
 
     } catch (err: any) {
       setError(err.response?.data?.error || "Authentication failed.");
@@ -155,6 +168,9 @@ function AuthForm({ mode }: { mode: "login" | "signup" }) {
       {/* GOOGLE LOGIN BUTTON */}
       <button
         type="button"
+        onClick={() => {
+          window.location.href = "http://localhost:5001/api/auth/google";
+        }}
         className="w-full py-3 flex items-center gap-3 justify-center 
                    bg-white/10 border border-white/20 
                    rounded-xl hover:bg-white/20 transition-all"

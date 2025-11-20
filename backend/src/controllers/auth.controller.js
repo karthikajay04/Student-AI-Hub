@@ -1,45 +1,12 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const db = require("../db");
+const {
+  getGoogleLoginURL,
+  getGoogleUser,
+} = require("../services/google.service");
 
-let users = [
-  {
-    id: "1",
-    name: "Alice",
-    email: "alice@example.com",
-    passwordHash: "$2b$10$u9kqP1R8i8rR6k6D0jQh6.OS3pB9yQQE/hq4sW2aR0d3P8w1jRzB2" // password123
-  }
-];
-
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password)
-      return res.status(400).json({ error: "Email and password required" });
-
-    const user = users.find((u) => u.email === email);
-    if (!user)
-      return res.status(401).json({ error: "Invalid email or password" });
-
-    const match = await bcrypt.compare(password, user.passwordHash);
-    if (!match)
-      return res.status(401).json({ error: "Invalid email or password" });
-
-    const token = jwt.sign(
-      { id: user.id, name: user.name, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    return res.json({
-      token,
-      user: { id: user.id, name: user.name, email: user.email }
-    });
-  } catch (err) {
-    console.error("Login error", err);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-};
-
+// ------------------ SIGNUP (EMAIL + PASSWORD) ------------------
 exports.signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -47,38 +14,139 @@ exports.signup = async (req, res) => {
     if (!name || !email || !password)
       return res.status(400).json({ error: "All fields required" });
 
-    const exists = users.find((u) => u.email === email);
-    if (exists)
+    // Check if email already exists
+    const existing = await db.query(
+      "SELECT id FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (existing.rows.length > 0)
       return res.status(409).json({ error: "Email already registered" });
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const newUser = {
-      id: Date.now().toString(),
-      name,
-      email,
-      passwordHash,
-    };
-
-    users.push(newUser);
-
-    const token = jwt.sign(
-      { id: newUser.id, name: newUser.name, email: newUser.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+    const result = await db.query(
+      `INSERT INTO users (name, email, password_hash)
+       VALUES ($1, $2, $3)
+       RETURNING id, name, email`,
+      [name, email, passwordHash]
     );
 
-    return res.status(201).json({
-      token,
-      user: { id: newUser.id, name: newUser.name, email: newUser.email },
+    const user = result.rows[0];
+
+    const token = jwt.sign(user, process.env.JWT_SECRET, {
+      expiresIn: "1h",
     });
-  } catch (err) {
-    console.error("Signup error", err);
+
+    return res.status(201).json({ token, user });
+  } catch (error) {
+    console.error("Signup Error:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
 
-exports.me = (req, res) => {
+// ------------------ LOGIN (EMAIL + PASSWORD) ------------------
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const result = await db.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (result.rows.length === 0)
+      return res.status(401).json({ error: "Invalid email or password" });
+
+    const user = result.rows[0];
+
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match)
+      return res.status(401).json({ error: "Invalid email or password" });
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    return res.json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email },
+    });
+  } catch (error) {
+    console.error("Login Error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// ------------------ GOOGLE LOGIN (REDIRECT) ------------------
+exports.googleLogin = (req, res) => {
+  try {
+    const url = getGoogleLoginURL();
+    return res.redirect(url);
+  } catch (err) {
+    console.error("Google Login Redirect Error:", err);
+    res.status(500).send("Google Login failed");
+  }
+};
+
+// ------------------ GOOGLE CALLBACK ------------------
+exports.googleCallback = async (req, res) => {
+  try {
+    const code = req.query.code;
+    const googleUser = await getGoogleUser(code);
+
+    // Check if user exists
+    const existing = await db.query(
+      "SELECT * FROM users WHERE email = $1",
+      [googleUser.email]
+    );
+
+    let user;
+
+    if (existing.rows.length === 0) {
+      // Insert new Google user (no password needed)
+      const insert = await db.query(
+        `
+        INSERT INTO users (name, email, password_hash)
+        VALUES ($1, $2, $3)
+        RETURNING id, name, email
+        `,
+        [googleUser.name, googleUser.email, "google_oauth_user"]
+      );
+
+      user = insert.rows[0];
+    } else {
+      user = existing.rows[0];
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // Redirect back to frontend with token
+    return res.redirect(
+      `${process.env.GOOGLE_AUTH_REDIRECT}?token=${token}`
+    );
+  } catch (error) {
+    console.error("Google Callback Error:", error);
+    return res.status(500).send("Google Authentication Failed");
+  }
+};
+
+// ------------------ ME (VERIFY JWT) ------------------
+exports.me = async (req, res) => {
   try {
     const auth = req.headers.authorization;
     if (!auth) return res.status(401).json({ error: "Unauthorized" });
@@ -87,7 +155,7 @@ exports.me = (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     return res.json({ user: decoded });
-  } catch (err) {
+  } catch (error) {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 };

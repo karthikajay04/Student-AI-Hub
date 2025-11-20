@@ -8,6 +8,8 @@ const multer = require("multer");
 
 const authRoutes = require("./auth.routes");
 
+const contactRoute = require("./contact");
+
 // -------------------- AI GENERATION ROUTES --------------------
 router.post('/generate', aiController.handleGeneration);
 router.post('/codegen', aiController.handleCodeGeneration);
@@ -22,5 +24,9 @@ router.post('/summarize-video', youtubeController.handleVideoSummary);
 
 // -------------------- AUTH ROUTES --------------------
 router.use("/auth", authRoutes); // correct way
+
+
+// contact page route
+router.use("/contact", contactRoute);
 
 module.exports = router;
