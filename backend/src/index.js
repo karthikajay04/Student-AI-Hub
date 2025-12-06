@@ -10,7 +10,7 @@ const app = express();
 
 // ----------------- Middleware -----------------
 app.use(cors({
-  origin: "*", // or "http://localhost:5173"
+  origin: "https://frontend-k5qm.onrender.com", // or "http://localhost:5173"
   credentials: true
 }));
 
