@@ -1,5 +1,5 @@
 // src/services/openrouter.service.js
-const fetch = require("node-fetch");
+// const fetch = require("node-fetch"); // Native fetch is available in Node 18+
 
 /**
  * Cleans unwanted model tokens from the AI output
@@ -38,10 +38,12 @@ async function generate(prompt, systemPrompt) {
       body: JSON.stringify({
         model: "mistralai/mistral-7b-instruct", // default model
         messages,
+        max_tokens: 1000,
       }),
     });
 
     const data = await response.json();
+
 
     if (!data?.choices?.length) {
       throw new Error("No response from OpenRouter model");

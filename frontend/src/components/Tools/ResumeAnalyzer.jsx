@@ -1,5 +1,6 @@
 import React from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../../api";
 
 function ResumeAnalyzer() {
   const [text, setText] = React.useState("");
@@ -43,7 +44,7 @@ function ResumeAnalyzer() {
     setError("");
     setResult(null);
 
-    const backendUrl = "http://localhost:5001";
+    const backendUrl = API_BASE_URL;
 
     try {
       // --- FILE MODE ---

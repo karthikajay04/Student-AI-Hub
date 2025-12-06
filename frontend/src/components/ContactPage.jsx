@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../api";
 
 const ContactPage = () => {
   const [form, setForm] = useState({
@@ -22,7 +23,7 @@ const ContactPage = () => {
 
     try {
       const res = await axios.post(
-        "http://localhost:5001/api/contact", // backend endpoint
+        `${API_BASE_URL}/api/contact`, // backend endpoint
         form
       );
 

@@ -1,43 +1,44 @@
 import React from "react";
+import { API_BASE_URL } from "../../api";
 
 function CodeGenerator() {
   const [prompt, setPrompt] = React.useState("");
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [output, setOutput] = React.useState("");
 
- async function generate() {
-  if (!prompt.trim()) return;
-  setIsGenerating(true);
-  setOutput("");
+  async function generate() {
+    if (!prompt.trim()) return;
+    setIsGenerating(true);
+    setOutput("");
 
-  try {
-    const response = await fetch("http://localhost:5001/api/codegen", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prompt }),
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/codegen`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.output) {
-      setOutput(data.output.trim());
-    } else {
-      setOutput("// Error: Could not generate code.");
+      if (data.output) {
+        setOutput(data.output.trim());
+      } else {
+        setOutput("// Error: Could not generate code.");
+      }
+    } catch (error) {
+      console.error("Frontend error:", error);
+      setOutput("// Error: Failed to connect to backend.");
     }
-  } catch (error) {
-    console.error("Frontend error:", error);
-    setOutput("// Error: Failed to connect to backend.");
-  }
 
-  setIsGenerating(false);
-}
+    setIsGenerating(false);
+  }
 
 
   function copyToClipboard() {
     if (!output) return;
-    navigator.clipboard.writeText(output).catch(() => {});
+    navigator.clipboard.writeText(output).catch(() => { });
   }
 
   return (
@@ -62,11 +63,10 @@ function CodeGenerator() {
           <button
             onClick={generate}
             disabled={isGenerating}
-            className={`px-5 py-2 rounded-lg font-semibold transition-all ${
-              isGenerating
-                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-            }`}
+            className={`px-5 py-2 rounded-lg font-semibold transition-all ${isGenerating
+              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
           >
             {isGenerating ? "Generating…" : "Generate Code"}
           </button>
@@ -85,11 +85,10 @@ function CodeGenerator() {
             <button
               onClick={copyToClipboard}
               disabled={!output}
-              className={`px-4 py-1 rounded-md text-sm font-semibold transition-all ${
-                output
-                  ? "bg-blue-600 hover:bg-blue-700 text-white"
-                  : "bg-gray-700 text-gray-400 cursor-not-allowed"
-              }`}
+              className={`px-4 py-1 rounded-md text-sm font-semibold transition-all ${output
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                }`}
             >
               Copy
             </button>

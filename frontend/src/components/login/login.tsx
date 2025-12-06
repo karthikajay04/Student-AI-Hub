@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 
 import axios from "axios";
 import { useAuth } from "@/store/auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { API_BASE_URL } from "../../api";
 
 // 🚀 MAIN LOGIN + SIGNUP SCREEN
 export function Login() {
@@ -117,7 +118,7 @@ function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
     try {
       if (mode === "login") {
-        const res = await axios.post("http://localhost:5001/api/auth/login", {
+        const res = await axios.post(`${API_BASE_URL}/api/auth/login`, {
           email,
           password,
         });
@@ -127,7 +128,7 @@ function AuthForm({ mode }: { mode: "login" | "signup" }) {
       }
 
       // SIGN UP
-      const res = await axios.post("http://localhost:5001/api/auth/signup", {
+      const res = await axios.post(`${API_BASE_URL}/api/auth/signup`, {
         name,
         email,
         password,
@@ -169,7 +170,7 @@ function AuthForm({ mode }: { mode: "login" | "signup" }) {
       <button
         type="button"
         onClick={() => {
-          window.location.href = "http://localhost:5001/api/auth/google";
+          window.location.href = `${API_BASE_URL}/api/auth/google`;
         }}
         className="w-full py-3 flex items-center gap-3 justify-center 
                    bg-white/10 border border-white/20 

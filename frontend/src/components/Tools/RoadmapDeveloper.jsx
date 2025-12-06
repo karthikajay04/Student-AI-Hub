@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/store/auth";
+import { API_BASE_URL } from "../../api";
 
 // --- Icons ---
 const PlusIcon = ({ className = "h-4 w-4" }) => (
@@ -27,10 +28,10 @@ async function apiFetch(url, token, options = {}) {
   if (token) headers["Authorization"] = `Bearer ${token}`;
   headers["Content-Type"] = headers["Content-Type"] || "application/json";
   const res = await fetch(url, { ...options, headers });
-  
+
   if (!res.ok) {
     let body = null;
-    try { body = await res.json(); } catch (e) {}
+    try { body = await res.json(); } catch (e) { }
     const errMsg = body?.error || `${res.status} ${res.statusText}`;
     const err = new Error(errMsg);
     err.status = res.status;
@@ -65,7 +66,7 @@ export default function RoadmapApp() {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const data = await apiFetch("http://localhost:5001/api/roadmap", token, { method: "GET" });
+      const data = await apiFetch(`${API_BASE_URL}/api/roadmap`, token, { method: "GET" });
       const items = data.items || [];
       const normalized = items.map((it) => ({ ...it, subTasks: it.subTasks || [] }));
       setStudyItems(normalized);
@@ -82,7 +83,7 @@ export default function RoadmapApp() {
     setErrorMessage(null);
     try {
       const payload = { title: newItemTitle.trim() };
-      const data = await apiFetch("http://localhost:5001/api/roadmap", token, {
+      const data = await apiFetch(`${API_BASE_URL}/api/roadmap`, token, {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -112,7 +113,7 @@ export default function RoadmapApp() {
     }
     setErrorMessage(null);
     try {
-      await apiFetch(`http://localhost:5001/api/roadmap/${id}`, token, { method: "DELETE" });
+      await apiFetch(`${API_BASE_URL}/api/roadmap/${id}`, token, { method: "DELETE" });
       setStudyItems((prev) => prev.filter((it) => it.id !== id));
     } catch (err) {
       console.error("Delete item failed", err);
@@ -131,7 +132,7 @@ export default function RoadmapApp() {
     const item = studyItems.find((it) => it.id === id);
     const newExpanded = item ? !item.expanded : true;
     try {
-      await apiFetch(`http://localhost:5001/api/roadmap/${id}`, token, {
+      await apiFetch(`${API_BASE_URL}/api/roadmap/${id}`, token, {
         method: "PUT",
         body: JSON.stringify({ expanded: newExpanded }),
       });
@@ -144,7 +145,7 @@ export default function RoadmapApp() {
     if (!text || !text.trim()) return;
     setErrorMessage(null);
     try {
-      const res = await apiFetch(`http://localhost:5001/api/roadmap/${mainId}/subtask`, token, {
+      const res = await apiFetch(`${API_BASE_URL}/api/roadmap/${mainId}/subtask`, token, {
         method: "POST",
         body: JSON.stringify({ text: text.trim() }),
       });
@@ -163,7 +164,7 @@ export default function RoadmapApp() {
   async function toggleSubTask(mainId, subTaskId) {
     setErrorMessage(null);
     try {
-      const res = await apiFetch(`http://localhost:5001/api/roadmap/subtask/${subTaskId}`, token, {
+      const res = await apiFetch(`${API_BASE_URL}/api/roadmap/subtask/${subTaskId}`, token, {
         method: "PUT",
       });
       const updated = res.subtask;
@@ -187,7 +188,7 @@ export default function RoadmapApp() {
   async function deleteSubTask(mainId, subTaskId) {
     setErrorMessage(null);
     try {
-      await apiFetch(`http://localhost:5001/api/roadmap/subtask/${subTaskId}`, token, { method: "DELETE" });
+      await apiFetch(`${API_BASE_URL}/api/roadmap/subtask/${subTaskId}`, token, { method: "DELETE" });
       setStudyItems((prev) => prev.map((it) => (it.id === mainId ? { ...it, subTasks: it.subTasks.filter((t) => t.id !== subTaskId) } : it)));
     } catch (err) {
       console.error("Delete subtask failed", err);
@@ -198,7 +199,7 @@ export default function RoadmapApp() {
   async function updateNotes(mainId, text) {
     setStudyItems((prev) => prev.map((it) => (it.id === mainId ? { ...it, notes: text } : it)));
     try {
-      await apiFetch(`http://localhost:5001/api/roadmap/${mainId}`, token, {
+      await apiFetch(`${API_BASE_URL}/api/roadmap/${mainId}`, token, {
         method: "PUT",
         body: JSON.stringify({ notes: text }),
       });
@@ -211,7 +212,7 @@ export default function RoadmapApp() {
   async function updateTitle(mainId, title) {
     setStudyItems((prev) => prev.map((it) => (it.id === mainId ? { ...it, title } : it)));
     try {
-      await apiFetch(`http://localhost:5001/api/roadmap/${mainId}`, token, {
+      await apiFetch(`${API_BASE_URL}/api/roadmap/${mainId}`, token, {
         method: "PUT",
         body: JSON.stringify({ title }),
       });
@@ -245,23 +246,24 @@ Example response:
       // 2. Prepare Payload
       // CRITICAL FIX: Map 'title' to 'prompt' because ai.controller expects 'prompt'
       const payload = {
-        prompt: title, 
-        systemPrompt,
-        service: service, 
+        prompt: title,
+        systemPrompt: systemPrompt + " Return ONLY valid JSON.",
+        service: service,
       };
 
       // 3. Call API - CRITICAL FIX: Use the direct AI route found in api.routes.js
       // OLD (Broken): "http://localhost:5001/api/roadmap/generate"
       // NEW (Working): "http://localhost:5001/api/generate"
-      const res = await apiFetch("http://localhost:5001/api/generate", token, {
+      const res = await apiFetch(`${API_BASE_URL}/api/generate`, token, {
         method: "POST",
         body: JSON.stringify(payload),
       });
 
       const rawText = res.text || "";
-      
+
       // 4. Robust Parsing (Regex match for JSON object)
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      // Attempt to find longest JSON block first
+      let jsonMatch = rawText.match(/\{[\s\S]*?\}(?=[^}]*$)/) || rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         console.error("Invalid AI Response:", rawText);
         throw new Error("No JSON object found in AI response.");
@@ -280,15 +282,15 @@ Example response:
       // 5. Merge Notes (Append to existing notes instead of replacing)
       const currentItem = studyItems.find((it) => it.id === itemId);
       const existingNotes = currentItem?.notes || "";
-      
+
       let finalNotes = existingNotes;
       if (newNotes) {
-        finalNotes = existingNotes 
+        finalNotes = existingNotes
           ? `${existingNotes}\n\n--- AI Notes (${service}) ---\n${newNotes}`
           : `--- AI Notes (${service}) ---\n${newNotes}`;
 
         // Update DB with new merged notes (We still use roadmap routes for DB updates)
-        await apiFetch(`http://localhost:5001/api/roadmap/${itemId}`, token, {
+        await apiFetch(`${API_BASE_URL}/api/roadmap/${itemId}`, token, {
           method: "PUT",
           body: JSON.stringify({ notes: finalNotes }),
         });
@@ -297,7 +299,7 @@ Example response:
       // 6. Add Subtasks (One by one to DB)
       if (newTasks.length > 0) {
         for (const t of newTasks) {
-           await apiFetch(`http://localhost:5001/api/roadmap/${itemId}/subtask`, token, {
+          await apiFetch(`${API_BASE_URL}/api/roadmap/${itemId}/subtask`, token, {
             method: "POST",
             body: JSON.stringify({ text: t }),
           });
@@ -471,9 +473,9 @@ function StudyItemCard({
               className="flex-1 px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded-lg font-semibold transition disabled:bg-gray-700 disabled:cursor-not-allowed text-sm md:text-base"
             >
               {isGenerating ? (
-                 <span className="flex items-center justify-center gap-2">
-                   <Spinner /> Generating...
-                 </span>
+                <span className="flex items-center justify-center gap-2">
+                  <Spinner /> Generating...
+                </span>
               ) : (
                 "Generate Tasks & Notes"
               )}

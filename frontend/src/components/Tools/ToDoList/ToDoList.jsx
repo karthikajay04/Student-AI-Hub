@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from "axios";
 import { useAuth } from "@/store/auth";
+import { API_BASE_URL } from "../../../api";
 
 // --- SVG Icons ---
 const HighlightIcon = () => (
@@ -60,7 +61,7 @@ function Note(props) {
     <div className="relative bg-white rounded-lg shadow-[0_2px_5px_#ccc] p-4 w-64 m-4 text-black">
       <h1 className="text-lg font-bold mb-2 break-words">{props.title}</h1>
       <p className="text-base mb-12 whitespace-pre-wrap break-words">{props.content}</p>
-      
+
       <button
         onClick={handleClick}
         className="absolute bottom-3 right-3 text-[#f5ba13] hover:bg-[#f5ba13] hover:text-white w-9 h-9 flex items-center justify-center rounded-full cursor-pointer outline-none transition-all duration-200 shadow-sm hover:shadow-md"
@@ -112,7 +113,7 @@ function CreateArea(props) {
     const systemPrompt = "You are a task breakdown assistant. The user will provide a task, title, or idea. Break it down into a concise, actionable to-do list. Use simple bullet points (e.g., '- Item 1') for the list. Do not add any introductory or concluding text, just the list.";
 
     try {
-      const response = await fetch('http://localhost:5001/api/generate', {
+      const response = await fetch(`${API_BASE_URL}/api/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +121,7 @@ function CreateArea(props) {
         body: JSON.stringify({
           prompt: prompt,
           systemPrompt: systemPrompt,
-          service: 'llama' 
+          service: 'llama'
         }),
       });
 
@@ -129,7 +130,7 @@ function CreateArea(props) {
       }
 
       const data = await response.json();
-      const generatedText = data.text; 
+      const generatedText = data.text;
 
       setNote(prevNote => ({
         ...prevNote,
@@ -212,9 +213,9 @@ function ToDoList() {
     async function loadNotes() {
       // Optional: Check if token exists before calling
       if (!token) return;
-      
+
       try {
-        const res = await axios.get("http://localhost:5001/api/notes", {
+        const res = await axios.get(`${API_BASE_URL}/api/notes`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setNotes(res.data);
@@ -223,13 +224,13 @@ function ToDoList() {
       }
     }
     loadNotes();
-  }, [token]); // Added token to dependency array to re-fetch on login
+  }, [token]);
 
   // 2. Add Note to DB
   async function addNote(newNote) {
     try {
       const res = await axios.post(
-        "http://localhost:5001/api/notes",
+        `${API_BASE_URL}/api/notes`,
         newNote,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -243,7 +244,7 @@ function ToDoList() {
   // 3. Delete Note from DB
   async function deleteNote(id) {
     try {
-      await axios.delete(`http://localhost:5001/api/notes/${id}`, {
+      await axios.delete(`${API_BASE_URL}/api/notes/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       // Filter using the DB ID

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from "../../api";
 
 // --- STUB for GradientText ---
 // Assuming GradientText is in a relative path and works as intended
@@ -149,16 +150,14 @@ const ChatMessage = ({ message }) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className={`flex ${
-        message.sender === 'user' ? 'justify-end' : 'justify-start'
-      }`}
+      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'
+        }`}
     >
       <div
-        className={`relative max-w-xs lg:max-w-2xl px-4 py-3 rounded-2xl group ${
-          message.sender === 'user'
-            ? 'bg-blue-600 rounded-br-lg'
-            : 'bg-gray-800 rounded-bl-lg'
-        } prose prose-sm prose-invert`}
+        className={`relative max-w-xs lg:max-w-2xl px-4 py-3 rounded-2xl group ${message.sender === 'user'
+          ? 'bg-blue-600 rounded-br-lg'
+          : 'bg-gray-800 rounded-bl-lg'
+          } prose prose-sm prose-invert`}
       >
         {/* Copy Button for Bot Messages */}
         {message.sender === 'bot' && (
@@ -294,7 +293,7 @@ export default function AiChatbot() {
       'You are a helpful chatbot. Be concise and friendly. Format code snippets using markdown code blocks.';
 
     try {
-      const response = await fetch('http://localhost:5001/api/generate', {
+      const response = await fetch(`${API_BASE_URL}/api/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

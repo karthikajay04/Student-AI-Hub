@@ -69,7 +69,7 @@ const handleCodeGeneration = async (req, res) => {
     const result = await cerebrasService.generate(prompt, systemPrompt);
 
     return res.status(200).json({
-      output: result.text,  
+      output: result.text,
       source: 'cerebras',
     });
   } catch (error) {
@@ -107,4 +107,22 @@ const handleDebugCode = async (req, res) => {
   }
 };
 
-module.exports = { handleGeneration, handleCodeGeneration,handleDebugCode, };
+const handleGenerationInternal = async ({ prompt, systemPrompt, service }) => {
+  if (!prompt || !service) {
+    throw new Error('Prompt and service are required.');
+  }
+
+  let result;
+  switch (service) {
+    case 'gemini': result = await geminiService.generate(prompt, systemPrompt); break;
+    case 'llama': result = await llamaService.generate(prompt, systemPrompt); break;
+    case 'ollama': result = await ollamaService.generate(prompt, systemPrompt); break;
+    case 'openrouter': result = await openrouterService.generate(prompt, systemPrompt); break;
+    case 'cerebras': result = await cerebrasService.generate(prompt, systemPrompt); break;
+    default: throw new Error('Invalid service selected.');
+  }
+  return result;
+};
+
+module.exports = { handleGeneration, handleCodeGeneration, handleDebugCode, handleGenerationInternal };
+

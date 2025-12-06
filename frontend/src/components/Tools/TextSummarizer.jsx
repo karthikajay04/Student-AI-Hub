@@ -1,5 +1,6 @@
 import React from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../../api";
 
 function TextSummarizer() {
   const [text, setText] = React.useState("");
@@ -44,7 +45,7 @@ function TextSummarizer() {
     setError("");
     setSummary("");
 
-    const backendUrl = "http://localhost:5001";
+    const backendUrl = API_BASE_URL;
 
     try {
       // --- FILE MODE ---
@@ -164,11 +165,10 @@ function TextSummarizer() {
           <button
             onClick={summarize}
             disabled={isSummarizing}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-              isSummarizing
-                ? "bg-blue-800 text-zinc-300 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
+            className={`px-6 py-2 rounded-lg font-semibold transition-all ${isSummarizing
+              ? "bg-blue-800 text-zinc-300 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+              }`}
           >
             {isSummarizing ? "Summarizing…" : "Summarize"}
           </button>

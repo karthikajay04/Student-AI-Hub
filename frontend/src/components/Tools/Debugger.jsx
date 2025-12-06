@@ -1,36 +1,37 @@
 import React from "react";
+import { API_BASE_URL } from "../../api";
 
 function Debugger() {
   const [code, setCode] = React.useState("");
   const [isDebugging, setIsDebugging] = React.useState(false);
   const [result, setResult] = React.useState("");
 
- async function debug() {
-  if (!code.trim()) return;
-  setIsDebugging(true);
-  setResult("");
+  async function debug() {
+    if (!code.trim()) return;
+    setIsDebugging(true);
+    setResult("");
 
-  try {
-    const response = await fetch("http://localhost:5001/api/debug", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/debug`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.output) {
-      setResult(data.output.trim());
-    } else {
-      setResult("// Error: Could not analyze code.");
+      if (data.output) {
+        setResult(data.output.trim());
+      } else {
+        setResult("// Error: Could not analyze code.");
+      }
+    } catch (error) {
+      console.error("Frontend error:", error);
+      setResult("// Error: Failed to connect to backend.");
     }
-  } catch (error) {
-    console.error("Frontend error:", error);
-    setResult("// Error: Failed to connect to backend.");
-  }
 
-  setIsDebugging(false);
-}
+    setIsDebugging(false);
+  }
 
   return (
     <section className="min-h-screen bg-black text-white flex items-center justify-center p-6">
@@ -54,11 +55,10 @@ function Debugger() {
           <button
             onClick={debug}
             disabled={isDebugging}
-            className={`px-5 py-2 rounded-lg font-semibold transition-all ${
-              isDebugging
-                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-            }`}
+            className={`px-5 py-2 rounded-lg font-semibold transition-all ${isDebugging
+              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
           >
             {isDebugging ? "Debugging…" : "Debug"}
           </button>
