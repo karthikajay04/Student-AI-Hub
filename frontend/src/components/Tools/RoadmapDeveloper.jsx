@@ -1,160 +1,234 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useAuth } from "@/store/auth";
 
-// --- Initial Data ---
-// ... existing code ...
-const initialData = [
-  {
-    id: 1,
-    title: "JavaScript Fundamentals",
-    expanded: false,
-    notes: "Remember to focus on 'this' keyword and closures.",
-    subTasks: [
-      { id: 101, text: "Learn variables and data types", done: true },
-      { id: 102, text: "Understand functions and scope", done: true },
-      { id: 103, text: "Explore loops and conditionals", done: false },
-      { id: 104, text: "Practice with Array methods", done: false },
-    ],
-  },
-  {
-    id: 2,
-    title: "React Basics",
-    expanded: false,
-    notes: "JSX is weird but powerful. Props flow down.",
-    subTasks: [
-      { id: 201, text: "What is JSX?", done: false },
-      { id: 202, text: "Create a functional component", done: false },
-      { id: 203, text: "Learn about props", done: false },
-    ],
-  },
-];
+// --- Icons ---
+const PlusIcon = ({ className = "h-4 w-4" }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+  </svg>
+);
 
-// --- Main App Component ---
+const TrashIcon = ({ className = "h-4 w-4" }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M9 6v12a2 2 0 002 2h2a2 2 0 002-2V6M10 6V4a1 1 0 011-1h2a1 1 0 011 1v2" />
+  </svg>
+);
+
+const Spinner = ({ className = "h-4 w-4 animate-spin" }) => (
+  <svg className={className} viewBox="0 0 50 50">
+    <circle cx="25" cy="25" r="20" stroke="currentColor" strokeWidth="5" fill="none" opacity="0.25" />
+    <path d="M45 25a20 20 0 00-20-20" stroke="currentColor" strokeWidth="5" fill="none" strokeLinecap="round" />
+  </svg>
+);
+
+// ----------------- API helper -----------------
+async function apiFetch(url, token, options = {}) {
+  const headers = options.headers || {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  headers["Content-Type"] = headers["Content-Type"] || "application/json";
+  const res = await fetch(url, { ...options, headers });
+  
+  if (!res.ok) {
+    let body = null;
+    try { body = await res.json(); } catch (e) {}
+    const errMsg = body?.error || `${res.status} ${res.statusText}`;
+    const err = new Error(errMsg);
+    err.status = res.status;
+    err.body = body;
+    throw err;
+  }
+  return res.json().catch(() => ({}));
+}
+
+// ----------------- Main Component -----------------
 export default function RoadmapApp() {
-  const [studyItems, setStudyItems] = useState(initialData);
+  const token = useAuth((s) => s.token);
+  const [studyItems, setStudyItems] = useState([]);
   const [newItemTitle, setNewItemTitle] = useState("");
-  const [modalState, setModalState] = useState({
-    isOpen: false,
-    itemToDelete: null,
-  });
-  // --- State for AI generation loading ---
-  const [isGenerating, setIsGenerating] = useState(null); // Will store the ID of the item being generated
-  // --- NEW: Error state for user feedback ---
+  const [modalState, setModalState] = useState({ isOpen: false, itemToDelete: null });
+  const [loading, setLoading] = useState(false);
+  const [generatingItemId, setGeneratingItemId] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  // --- REMOVED: State for model selection ---
-  // const [selectedService, setSelectedService] = useState("openrouter");
 
-  // --- Main Item Handlers ---
-  const addMainItem = () => {
-// ... existing code ...
-    if (!newItemTitle.trim()) return;
-    const newItem = {
-      id: Date.now(),
-      title: newItemTitle,
-      expanded: false,
-      notes: "", // Add notes field to new items
-      subTasks: [],
-    };
-    setStudyItems([...studyItems, newItem]);
-    setNewItemTitle("");
-  };
-
-  const requestDeleteMainItem = (id) => {
-// ... existing code ...
-    setModalState({ isOpen: true, itemToDelete: id });
-  };
-
-  const executeDeleteMainItem = () => {
-// ... existing code ...
-    if (modalState.itemToDelete) {
-      setStudyItems(
-        studyItems.filter((item) => item.id !== modalState.itemToDelete)
-      );
+  // Load items on mount
+  useEffect(() => {
+    if (!token) {
+      setStudyItems([]);
+      return;
     }
-    // Close modal
+    loadItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  async function loadItems() {
+    if (!token) return;
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const data = await apiFetch("http://localhost:5001/api/roadmap", token, { method: "GET" });
+      const items = data.items || [];
+      const normalized = items.map((it) => ({ ...it, subTasks: it.subTasks || [] }));
+      setStudyItems(normalized);
+    } catch (err) {
+      console.error("Failed to load roadmap items", err);
+      setErrorMessage(err.message || "Failed to load items");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function addMainItem() {
+    if (!newItemTitle.trim()) return;
+    setErrorMessage(null);
+    try {
+      const payload = { title: newItemTitle.trim() };
+      const data = await apiFetch("http://localhost:5001/api/roadmap", token, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const newItem = data.item;
+      if (newItem) {
+        newItem.subTasks = newItem.subTasks || [];
+        setStudyItems((prev) => [newItem, ...prev]);
+        setNewItemTitle("");
+      } else {
+        await loadItems();
+      }
+    } catch (err) {
+      console.error("Add item failed", err);
+      setErrorMessage(err.message || "Failed to add item");
+    }
+  }
+
+  function requestDeleteMainItem(id) {
+    setModalState({ isOpen: true, itemToDelete: id });
+  }
+
+  async function executeDeleteMainItem() {
+    const id = modalState.itemToDelete;
+    if (!id) {
+      setModalState({ isOpen: false, itemToDelete: null });
+      return;
+    }
+    setErrorMessage(null);
+    try {
+      await apiFetch(`http://localhost:5001/api/roadmap/${id}`, token, { method: "DELETE" });
+      setStudyItems((prev) => prev.filter((it) => it.id !== id));
+    } catch (err) {
+      console.error("Delete item failed", err);
+      setErrorMessage(err.message || "Failed to delete item");
+    } finally {
+      setModalState({ isOpen: false, itemToDelete: null });
+    }
+  }
+
+  function cancelDeleteMainItem() {
     setModalState({ isOpen: false, itemToDelete: null });
-  };
+  }
 
-  const cancelDeleteMainItem = () => {
-// ... existing code ...
-    setModalState({ isOpen: false, itemToDelete: null });
-  };
+  async function toggleExpand(id) {
+    setStudyItems((prev) => prev.map((it) => (it.id === id ? { ...it, expanded: !it.expanded } : it)));
+    const item = studyItems.find((it) => it.id === id);
+    const newExpanded = item ? !item.expanded : true;
+    try {
+      await apiFetch(`http://localhost:5001/api/roadmap/${id}`, token, {
+        method: "PUT",
+        body: JSON.stringify({ expanded: newExpanded }),
+      });
+    } catch (err) {
+      console.warn("Could not persist expanded state:", err);
+    }
+  }
 
-  const toggleExpand = (id) => {
-// ... existing code ...
-    setStudyItems(
-      studyItems.map((item) =>
-        item.id === id ? { ...item, expanded: !item.expanded } : item
-      )
-    );
-  };
+  async function addSubTask(mainId, text) {
+    if (!text || !text.trim()) return;
+    setErrorMessage(null);
+    try {
+      const res = await apiFetch(`http://localhost:5001/api/roadmap/${mainId}/subtask`, token, {
+        method: "POST",
+        body: JSON.stringify({ text: text.trim() }),
+      });
+      const subtask = res.subtask;
+      if (subtask) {
+        setStudyItems((prev) => prev.map((it) => (it.id === mainId ? { ...it, subTasks: [...it.subTasks, subtask] } : it)));
+      } else {
+        await loadItems();
+      }
+    } catch (err) {
+      console.error("Add subtask failed", err);
+      setErrorMessage(err.message || "Failed to add subtask");
+    }
+  }
 
-  // --- Sub-Task & Notes Handlers (passed down) ---
-  const addSubTask = (mainId, text) => {
-// ... existing code ...
-    if (!text.trim()) return;
-    const newSubTask = { id: Date.now(), text, done: false };
+  async function toggleSubTask(mainId, subTaskId) {
+    setErrorMessage(null);
+    try {
+      const res = await apiFetch(`http://localhost:5001/api/roadmap/subtask/${subTaskId}`, token, {
+        method: "PUT",
+      });
+      const updated = res.subtask;
+      if (updated) {
+        setStudyItems((prev) =>
+          prev.map((it) =>
+            it.id === mainId
+              ? { ...it, subTasks: it.subTasks.map((t) => (t.id === subTaskId ? updated : t)) }
+              : it
+          )
+        );
+      } else {
+        await loadItems();
+      }
+    } catch (err) {
+      console.error("Toggle subtask failed", err);
+      setErrorMessage(err.message || "Failed to toggle subtask");
+    }
+  }
 
-    setStudyItems(
-      studyItems.map((item) =>
-        item.id === mainId
-          ? { ...item, subTasks: [...item.subTasks, newSubTask] }
-          : item
-      )
-    );
-  };
+  async function deleteSubTask(mainId, subTaskId) {
+    setErrorMessage(null);
+    try {
+      await apiFetch(`http://localhost:5001/api/roadmap/subtask/${subTaskId}`, token, { method: "DELETE" });
+      setStudyItems((prev) => prev.map((it) => (it.id === mainId ? { ...it, subTasks: it.subTasks.filter((t) => t.id !== subTaskId) } : it)));
+    } catch (err) {
+      console.error("Delete subtask failed", err);
+      setErrorMessage(err.message || "Failed to delete subtask");
+    }
+  }
 
-  const toggleSubTask = (mainId, subTaskId) => {
-// ... existing code ...
-    setStudyItems(
-      studyItems.map((item) =>
-        item.id === mainId
-          ? {
-              ...item,
-              subTasks: item.subTasks.map((task) =>
-                task.id === subTaskId ? { ...task, done: !task.done } : task
-              ),
-            }
-          : item
-      )
-    );
-  };
+  async function updateNotes(mainId, text) {
+    setStudyItems((prev) => prev.map((it) => (it.id === mainId ? { ...it, notes: text } : it)));
+    try {
+      await apiFetch(`http://localhost:5001/api/roadmap/${mainId}`, token, {
+        method: "PUT",
+        body: JSON.stringify({ notes: text }),
+      });
+    } catch (err) {
+      console.error("Update notes failed", err);
+      setErrorMessage(err.message || "Failed to update notes");
+    }
+  }
 
-  const deleteSubTask = (mainId, subTaskId) => {
-// ... existing code ...
-    setStudyItems(
-      studyItems.map((item) =>
-        item.id === mainId
-          ? {
-              ...item,
-              subTasks: item.subTasks.filter((task) => task.id !== subTaskId),
-            }
-          : item
-      )
-    );
-  };
+  async function updateTitle(mainId, title) {
+    setStudyItems((prev) => prev.map((it) => (it.id === mainId ? { ...it, title } : it)));
+    try {
+      await apiFetch(`http://localhost:5001/api/roadmap/${mainId}`, token, {
+        method: "PUT",
+        body: JSON.stringify({ title }),
+      });
+    } catch (err) {
+      console.error("Update title failed", err);
+      setErrorMessage(err.message || "Failed to update title");
+    }
+  }
 
-  const updateNotes = (mainId, text) => {
-// ... existing code ...
-    setStudyItems(
-      studyItems.map((item) =>
-        item.id === mainId ? { ...item, notes: text } : item
-      )
-    );
-  };
+  // ----------------- UPDATED AI GENERATION HANDLER -----------------
+  // ----------------- UPDATED AI GENERATION HANDLER -----------------
+  async function handleGenerateContent(itemId, title, service) {
+    setGeneratingItemId(itemId);
+    setErrorMessage(null);
 
-  // --- MODIFIED: AI Content Generation Handler ---
-  const handleGenerateContent = async (id, title, service) => {
-    // --- MODIFIED SIGNATURE ---
-    setIsGenerating(id); // Set loading state for this specific item
-    setErrorMessage(null); // --- NEW: Clear previous errors ---
-
-    // --- 1. Update URL to match your api.routes.js AND index.js ---
-    const yourBackendUrl = "http://localhost:5001/api/generate"; // ---
-
-    // --- 2. Create payload matching your ai.controller.js ---
-// ... existing code ...
-    const systemPrompt = `You are an expert curriculum designer. Given a topic, you must generate a list of sub-tasks and some helpful notes.
-Respond *only* with a single, valid JSON object. Do not include any other text or markdown.
+    // 1. Strict System Prompt
+    const systemPrompt = `You are an expert curriculum designer. Given a topic, you must generate a list of sub-tasks and some helpful notes. Respond *only* with a single, valid JSON object. Do not include any other text or markdown.
 The JSON object must have two keys:
 1. "tasks": an array of 3-5 strings, where each string is an actionable sub-task.
 2. "notes": a single string containing a concise, helpful note about the topic.
@@ -165,206 +239,157 @@ Example response:
   "notes": "This is a helpful note."
 }`;
 
-    const payload = {
-      prompt: title,
-      systemPrompt: systemPrompt,
-      service: service, // --- UPDATED: Use service passed from card ---
-    };
-
     try {
-// ... existing code ...
-      const response = await fetch(yourBackendUrl, {
+      console.log(`Sending request to AI. Service: ${service}, Topic: ${title}`);
+
+      // 2. Prepare Payload
+      // CRITICAL FIX: Map 'title' to 'prompt' because ai.controller expects 'prompt'
+      const payload = {
+        prompt: title, 
+        systemPrompt,
+        service: service, 
+      };
+
+      // 3. Call API - CRITICAL FIX: Use the direct AI route found in api.routes.js
+      // OLD (Broken): "http://localhost:5001/api/roadmap/generate"
+      // NEW (Working): "http://localhost:5001/api/generate"
+      const res = await apiFetch("http://localhost:5001/api/generate", token, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload), // Send the full payload
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-// ... existing code ...
-        // --- NEW: Handle backend errors more explicitly ---
-        const errorData = await response.json().catch(() => null); // Try to parse error
-        const errorMsg =
-          errorData?.error ||
-          `Backend Error: ${response.status} ${response.statusText}`;
-        throw new Error(errorMsg);
-      }
-
-      // --- 3. Update response parsing logic ---
-// ... existing code ...
-      // Your backend returns { text: "...", source: "..." }
-      // The "text" field contains the JSON string we asked for.
-      const result = await response.json();
-
-      if (!result.text) {
-// ... existing code ...
-        throw new Error(
-          "Invalid response structure from backend. 'text' field is missing."
-        );
-      }
-
-      // --- NEW ROBUST PARSING LOGIC ---
-// ... existing code ...
-      const rawText = result.text;
-      console.log("Raw AI Response Text:", rawText); // For debugging
-
-      // Try to find a JSON object within the text
+      const rawText = res.text || "";
+      
+      // 4. Robust Parsing (Regex match for JSON object)
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-
       if (!jsonMatch) {
-// ... existing code ...
-        throw new Error(
-          "No JSON object found in AI response. Response was: " + rawText
-        );
+        console.error("Invalid AI Response:", rawText);
+        throw new Error("No JSON object found in AI response.");
       }
 
-      let generated;
+      let parsed;
       try {
-// ... existing code ...
-        // Parse the extracted JSON string
-        generated = JSON.parse(jsonMatch[0]);
-      } catch (parseError) {
-// ... existing code ...
-        throw new Error(
-          "Failed to parse JSON from AI response. " + parseError.message
-        );
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        throw new Error("Failed to parse JSON from AI response.");
       }
-      // --- END OF NEW LOGIC ---
 
-      if (generated.tasks || generated.notes) {
-// ... existing code ...
-        setStudyItems((prevItems) =>
-          prevItems.map((item) => {
-            if (item.id === id) {
-              // Create new task objects from the generated strings
-              const newTasks = (generated.tasks || []).map(
-                (taskText, index) => ({
-                  id: Date.now() + index, // Simple unique ID
-                  text: taskText,
-                  done: false,
-                })
-              );
+      const newTasks = parsed.tasks || [];
+      const newNotes = parsed.notes || "";
 
-              // Append new notes to existing notes
-// ... existing code ...
-              const newNotes = generated.notes || "";
-              const combinedNotes = item.notes
-                ? `${item.notes}\n\n--- AI Notes ---\n${newNotes}`
-                : `--- AI Notes ---\n${newNotes}`;
+      // 5. Merge Notes (Append to existing notes instead of replacing)
+      const currentItem = studyItems.find((it) => it.id === itemId);
+      const existingNotes = currentItem?.notes || "";
+      
+      let finalNotes = existingNotes;
+      if (newNotes) {
+        finalNotes = existingNotes 
+          ? `${existingNotes}\n\n--- AI Notes (${service}) ---\n${newNotes}`
+          : `--- AI Notes (${service}) ---\n${newNotes}`;
 
-              return {
-// ... existing code ...
-                ...item,
-                subTasks: [...item.subTasks, ...newTasks],
-                notes: combinedNotes,
-                expanded: true, // Auto-expand the card to show new content
-              };
-            }
-            return item;
-          })
-        );
-      } else {
-// ... existing code ...
-        throw new Error("Invalid JSON structure from AI.");
+        // Update DB with new merged notes (We still use roadmap routes for DB updates)
+        await apiFetch(`http://localhost:5001/api/roadmap/${itemId}`, token, {
+          method: "PUT",
+          body: JSON.stringify({ notes: finalNotes }),
+        });
       }
-    } catch (error) {
-// ... existing code ...
-      console.error("Error generating content:", error);
-      // --- NEW: Show error to the user ---
-      setErrorMessage(error.message);
+
+      // 6. Add Subtasks (One by one to DB)
+      if (newTasks.length > 0) {
+        for (const t of newTasks) {
+           await apiFetch(`http://localhost:5001/api/roadmap/${itemId}/subtask`, token, {
+            method: "POST",
+            body: JSON.stringify({ text: t }),
+          });
+        }
+      }
+
+      // 7. Reload items to sync local state with DB
+      await loadItems();
+
+    } catch (err) {
+      console.error("AI generation failed", err);
+      setErrorMessage(err.message || "AI generation failed");
     } finally {
-// ... existing code ...
-      setIsGenerating(null); // Clear loading state
+      setGeneratingItemId(null);
     }
-  };
+  }
+  // -----------------------------------------------------------------
 
-  const getItemName = (id) => {
-// ... existing code ...
-    return studyItems.find((item) => item.id === id)?.title || "this item";
-  };
+  // helper to get item title for modal
+  const getItemName = (id) => studyItems.find((it) => it.id === id)?.title || "this item";
 
+  // ---------------- UI ----------------
   return (
     <div className="min-h-screen bg-black text-white flex justify-center pt-24 p-6">
-      <div className="w-full max-w-2xl">
-        {/* Header */}
-        <div className="mb-8 text-center">
-{/* ... existing code ... */}
-          <h1 className="text-3xl font-bold text-blue-500 mb-2">
-            My Learning Roadmap
-          </h1>
-          <p className="text-gray-400">
-            Click on an item to see your tasks.
-          </p>
+      <div className="w-full max-w-3xl">
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-bold text-blue-500 mb-2">My Learning Roadmap</h1>
+          <p className="text-gray-400">Click on an item to expand and manage tasks & notes.</p>
         </div>
 
-        {/* --- NEW: Error Message Display --- */}
         {errorMessage && (
-          <div className="bg-red-900 border border-red-700 text-red-100 p-4 rounded-lg mb-6">
-{/* ... existing code ... */}
-            <strong className="font-bold">Generation Failed: </strong>
-            <span className="block sm:inline">{errorMessage}</span>
+          <div className="bg-red-900 border border-red-700 text-red-100 p-3 rounded mb-4">
+            <strong>Oops:</strong> {errorMessage}
           </div>
         )}
 
-        {/* Add New Main Item */}
-        <div className="flex gap-2 mb-8">
-          {/* --- REVERTED INPUT --- */}
+        {/* Add new item */}
+        <div className="flex gap-2 mb-6">
           <input
-            type="text"
             value={newItemTitle}
             onChange={(e) => setNewItemTitle(e.target.value)}
-            placeholder="Add a new study item..."
-            className="flex-1 p-3 rounded-lg bg-[#1a1a1a] border border-gray-700 text-white focus:outline-none focus:border-blue-500"
             onKeyDown={(e) => e.key === "Enter" && addMainItem()}
+            placeholder="Add new study item (e.g. Algorithms, DevOps)"
+            className="flex-1 p-3 rounded-lg bg-[#0f1720] border border-gray-700 text-white focus:outline-none"
           />
-          {/* --- END OF REVERTED INPUT --- */}
-          <button
-            onClick={addMainItem}
-            className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-bold transition"
-          >
-            Add Item
+          <button onClick={addMainItem} className="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-lg flex items-center gap-2">
+            <PlusIcon /> Add
           </button>
         </div>
 
-        {/* List of Study Item Cards */}
-        <div className="space-y-4">
-{/* ... existing code ... */}
-          {studyItems.map((item) => (
-            <StudyItemCard
-              key={item.id}
-              item={item}
-              onToggleExpand={toggleExpand}
-              onAddSubTask={addSubTask}
-              onToggleSubTask={toggleSubTask}
-              onDeleteSubTask={deleteSubTask}
-              onDeleteMainItem={requestDeleteMainItem}
-              onUpdateNotes={updateNotes}
-              onGenerateContent={handleGenerateContent} // --- Pass generate handler
-              isGenerating={isGenerating === item.id} // --- Pass loading state
-              // --- REMOVED PROP ---
-            />
-          ))}
+        {/* Loading */}
+        {loading ? (
+          <div className="text-center text-gray-400 py-12">
+            <Spinner className="h-6 w-6 inline-block mr-2" /> Loading items...
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {studyItems.length === 0 && (
+              <div className="text-center text-gray-500 py-8">No items yet. Add one to get started.</div>
+            )}
 
-          {studyItems.length === 0 && (
-            <div className="text-center text-gray-500 mt-10">
-{/* ... existing code ... */}
-              No items yet. Add one above to get started!
-            </div>
-          )}
-        </div>
+            {studyItems.map((item) => (
+              <StudyItemCard
+                key={item.id}
+                item={item}
+                onToggleExpand={toggleExpand}
+                onAddSubTask={addSubTask}
+                onToggleSubTask={toggleSubTask}
+                onDeleteSubTask={deleteSubTask}
+                onDeleteMainItem={requestDeleteMainItem}
+                onUpdateNotes={updateNotes}
+                onUpdateTitle={updateTitle}
+                onGenerateContent={handleGenerateContent}
+                isGenerating={generatingItemId === item.id}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Modal */}
+        <ConfirmationModal
+          isOpen={modalState.isOpen}
+          itemName={getItemName(modalState.itemToDelete)}
+          onCancel={cancelDeleteMainItem}
+          onConfirm={executeDeleteMainItem}
+        />
       </div>
-
-      {/* --- Render Modal --- */}
-      <ConfirmationModal
-        isOpen={modalState.isOpen}
-        itemName={getItemName(modalState.itemToDelete)}
-        onCancel={cancelDeleteMainItem}
-        onConfirm={executeDeleteMainItem}
-      />
     </div>
   );
 }
 
-// --- Study Item Card Component ---
+// ---------------- Study Item Card ----------------
 function StudyItemCard({
   item,
   onToggleExpand,
@@ -373,210 +398,175 @@ function StudyItemCard({
   onDeleteSubTask,
   onDeleteMainItem,
   onUpdateNotes,
-  onGenerateContent, // --- Receive handler
-  isGenerating, // --- Receive loading state
-  // --- REMOVED PROP ---
+  onUpdateTitle,
+  onGenerateContent,
+  isGenerating,
 }) {
   const [subTaskText, setSubTaskText] = useState("");
-  // --- NEW: Local state for this card's model selection ---
-  const [localService, setLocalService] = useState("openrouter"); // --- Initialized with default ---
+  const [titleEdit, setTitleEdit] = useState(item.title);
+  // State for local model selection
+  const [selectedService, setSelectedService] = useState("openrouter");
 
-  // Calculate progress
-// ... existing code ...
-  const completed = item.subTasks.filter((task) => task.done).length;
-  const total = item.subTasks.length;
+  useEffect(() => {
+    setTitleEdit(item.title);
+  }, [item.title]);
+
+  const completed = (item.subTasks || []).filter((t) => t.done).length;
+  const total = (item.subTasks || []).length;
   const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
 
-  const handleAddSubTask = () => {
-// ... existing code ...
-    onAddSubTask(item.id, subTaskText);
+  const handleAdd = async () => {
+    if (!subTaskText.trim()) return;
+    await onAddSubTask(item.id, subTaskText.trim());
     setSubTaskText("");
   };
 
   return (
-    <div className="bg-[#111] border border-gray-800 rounded-xl transition-all">
-      {/* --- Card Header (Always Visible) --- */}
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer"
-        onClick={() => onToggleExpand(item.id)}
-      >
+    <div className="bg-[#0b1116] border border-gray-800 rounded-xl transition">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => onToggleExpand(item.id)}>
         <div className="flex-1 overflow-hidden">
-          <h2 className="text-lg font-semibold text-gray-100 truncate">
-{/* ... existing code ... */}
-            {item.title}
-          </h2>
-          {/* Progress Bar */}
+          <input
+            value={titleEdit}
+            onChange={(e) => setTitleEdit(e.target.value)}
+            onBlur={() => onUpdateTitle(item.id, titleEdit)}
+            onClick={(e) => e.stopPropagation()} // Stop expand on click input
+            className="bg-transparent text-lg font-semibold text-gray-100 w-full truncate outline-none"
+          />
           <div className="mt-2 bg-gray-800 rounded-full h-2 w-full overflow-hidden">
-            <div
-              className="bg-blue-600 h-full transition-all duration-500 ease-out"
-              style={{ width: `${progress}%` }}
-            ></div>
+            <div className="bg-blue-600 h-full transition-all" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
         <div className="flex items-center ml-4">
-          <span className="text-sm text-gray-400 w-12 text-right">
-{/* ... existing code ... */}
-            {progress}%
-          </span>
+          <span className="text-sm text-gray-400 w-12 text-right">{progress}%</span>
+
           <button
             onClick={(e) => {
-              e.stopPropagation(); // Don't trigger expand
+              e.stopPropagation();
               onDeleteMainItem(item.id);
             }}
-            className="text-gray-600 hover:text-red-400 ml-4 transition"
-            title="Delete this item"
+            className="ml-4 text-gray-500 hover:text-red-400"
+            title="Delete item"
           >
-            ✕
+            <TrashIcon />
           </button>
-          <span
-            className={`ml-4 text-xl transform transition-transform ${
-              item.expanded ? "rotate-180" : "rotate-0"
-            }`}
-          >
-            ▼
-          </span>
+
+          <div className={`ml-4 text-xl transform transition-transform ${item.expanded ? "rotate-180" : "rotate-0"}`}>▼</div>
         </div>
       </div>
 
-      {/* --- Card Body (Collapsible) --- */}
+      {/* Body */}
       {item.expanded && (
         <div className="p-4 border-t border-gray-700 space-y-4">
-          {/* --- MODIFIED: Generate Button + New Dropdown --- */}
+          {/* Generate + model selector */}
           <div className="flex gap-2 items-center">
             <button
-              onClick={() =>
-                onGenerateContent(item.id, item.title, localService)
-              } // --- UPDATED ---
+              onClick={(e) => {
+                e.stopPropagation();
+                // Pass the selected service
+                onGenerateContent(item.id, item.title, selectedService);
+              }}
               disabled={isGenerating}
-              className="flex-1 px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded-lg font-semibold transition disabled:bg-gray-700 disabled:cursor-not-allowed" // --- MODIFIED (flex-1) ---
+              className="flex-1 px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded-lg font-semibold transition disabled:bg-gray-700 disabled:cursor-not-allowed text-sm md:text-base"
             >
-              {isGenerating ? "Generating..." : "Generate Tasks & Notes"}
+              {isGenerating ? (
+                 <span className="flex items-center justify-center gap-2">
+                   <Spinner /> Generating...
+                 </span>
+              ) : (
+                "Generate Tasks & Notes"
+              )}
             </button>
-            {/* --- NEW DROPDOWN --- */}
+
             <select
-              value={localService}
-              onChange={(e) => setLocalService(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              value={selectedService}
+              onChange={(e) => setSelectedService(e.target.value)}
               disabled={isGenerating}
-              className="bg-[#1a1a1a] text-gray-300 text-sm rounded-lg
-                         py-2.5 px-3
-                         border border-gray-700
-                         focus:outline-none focus:border-blue-500 cursor-pointer
-                         hover:text-white"
-              aria-label="Select AI Model for this item"
-              onClick={(e) => e.stopPropagation()} // --- IMPORTANT: Stop card from expanding ---
+              className="bg-[#0f1720] text-gray-300 text-sm rounded-lg py-2 px-3 border border-gray-700 focus:outline-none cursor-pointer"
+              aria-label="Select AI model"
             >
               <option value="openrouter">OpenRouter</option>
               <option value="cerebras">Cerebras</option>
               <option value="llama">Llama</option>
-              <option value="deepseek">Deepseek (takes ~1 min)</option>
+              <option value="deepseek">Deepseek</option>
             </select>
           </div>
 
-          {/* Add Sub-Task Input */}
+          {/* Subtask input */}
           <div className="flex gap-2">
-{/* ... existing code ... */}
             <input
-              type="text"
               value={subTaskText}
-              onChange={(e) => setSubTaskText(e.g.value)}
+              onChange={(e) => setSubTaskText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAdd())}
               placeholder="Add a new task..."
-              className="flex-1 p-2 rounded-lg bg-[#1a1a1a] border border-gray-700 text-white focus:outline-none focus:border-blue-500"
-              onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
+              className="flex-1 p-2 rounded-lg bg-[#0f1720] border border-gray-700 text-white focus:outline-none"
             />
-            <button
-              onClick={handleAddSubTask}
-              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-bold transition text-sm"
-            >
-              Add Task
+            <button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-semibold">
+              Add
             </button>
           </div>
 
-          {/* Sub-Task List */}
+          {/* Subtasks list */}
           <div className="space-y-2">
-{/* ... existing code ... */}
-            {item.subTasks.length === 0 && (
+            {(item.subTasks || []).length === 0 ? (
               <p className="text-sm text-gray-500">No tasks yet.</p>
-            )}
-            {item.subTasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center justify-between p-2 rounded-md bg-[#1a1a1a] group"
-              >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <input
-                    type="checkbox"
-                    checked={task.done}
-                    onChange={() => onToggleSubTask(item.id, task.id)}
-                    className="w-4 h-4 accent-blue-500 cursor-pointer"
-                  />
-                  <span
-                    className={`truncate ${
-                      task.done
-                        ? "line-through text-gray-500"
-                        : "text-gray-300"
-                    }`}
+            ) : (
+              (item.subTasks || []).map((task) => (
+                <div key={task.id} className="flex items-center justify-between p-2 rounded-md bg-[#0f1720] group">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={!!task.done}
+                      onChange={() => onToggleSubTask(item.id, task.id)}
+                      className="w-4 h-4 accent-blue-500 cursor-pointer"
+                    />
+                    <span className={`truncate ${task.done ? "line-through text-gray-500" : "text-gray-300"}`}>{task.text}</span>
+                  </div>
+                  <button
+                    onClick={() => onDeleteSubTask(item.id, task.id)}
+                    className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                    title="Delete task"
                   >
-                    {task.text}
-                  </span>
+                    ✕
+                  </button>
                 </div>
-                <button
-                  onClick={() => onDeleteSubTask(item.id, task.id)}
-                  className="text-gray-600 hover:text-red-400 ml-2 transition opacity-0 group-hover:opacity-100"
-                  title="Delete this task"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
-          {/* --- Notes Section --- */}
+          {/* Notes */}
           <div>
-{/* ... existing code ... */}
-            <h3 className="text-md font-semibold text-blue-400 mb-2">
-              Notes
-            </h3>
+            <h3 className="text-md font-semibold text-blue-400 mb-2">Notes</h3>
             <textarea
-              value={item.notes}
+              value={item.notes || ""}
               onChange={(e) => onUpdateNotes(item.id, e.target.value)}
               placeholder="Add your notes here..."
-              className="w-full h-24 p-2 rounded-lg bg-[#1a1a1a] border border-gray-700 text-white focus:outline-none focus:border-blue-500"
+              className="w-full h-28 p-2 rounded-lg bg-[#0f1720] border border-gray-700 text-white focus:outline-none focus:border-blue-500"
             />
           </div>
-          {/* --- End of Notes Section --- */}
         </div>
       )}
     </div>
   );
 }
 
-// --- Confirmation Modal Component ---
+// ---------------- Confirmation Modal ----------------
 function ConfirmationModal({ isOpen, itemName, onCancel, onConfirm }) {
-// ... existing code ...
   if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-      <div className="bg-[#111] border border-gray-700 rounded-xl p-6 w-full max-w-sm m-4">
-        <h2 className="text-xl font-bold text-white mb-4">Confirm Deletion</h2>
-        {/* --- FIXED: Typo </f> to </p> --- */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+      <div className="bg-[#0b1116] border border-gray-700 rounded-xl p-6 w-full max-w-md m-4">
+        <h2 className="text-xl font-bold text-white mb-3">Confirm Deletion</h2>
         <p className="text-gray-300 mb-6">
-          Are you sure you want to delete{" "}
-          <strong className="text-blue-400">"{itemName}"</strong>? This action
-          cannot be undone.
+          Are you sure you want to delete <strong className="text-blue-400">"{itemName}"</strong>? This cannot be undone.
         </p>
         <div className="flex justify-end gap-3">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition"
-          >
+          <button onClick={onCancel} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold">
             Cancel
           </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition"
-          >
+          <button onClick={onConfirm} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold">
             Delete
           </button>
         </div>

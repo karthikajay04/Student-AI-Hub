@@ -10,13 +10,14 @@
   "dependencies": {
     "@cerebras/cerebras_cloud_sdk": "^1.59.0",
     "@google/generative-ai": "^0.24.1",
-    "axios": "^1.7.2",
+    "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "express-rate-limit": "^8.2.1",
     "googleapis": "^166.0.0",
+    "he": "^1.2.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
@@ -25,7 +26,10 @@
     "openai": "^4.52.7",
     "pdf-parse": "^1.1.1",
     "pg": "^8.16.3",
-    "youtube-transcript": "^1.2.1"
+    "puppeteer": "^24.31.0",
+    "xml2js": "^0.6.2",
+    "youtube-transcript": "^1.2.1",
+    "youtubei.js": "^16.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

@@ -1,73 +1,74 @@
+// src/controllers/youtube.controller.js
 const { getTranscriptText } = require("../services/youtube.service");
-const openrouterService = require("../services/openrouter.service"); // or llamaService/cerebras
+const openrouterService = require("../services/openrouter.service");
 
 async function handleVideoSummary(req, res) {
   try {
-    const { videoUrl, transcriptText, service } = req.body;
+    const { videoUrl, transcriptText, service = "openrouter" } = req.body;
 
     if (!videoUrl) {
-      return res.status(400).json({ error: "YouTube URL is required." });
+      return res.status(400).json({ error: "Video URL is required." });
     }
 
     let finalTranscript = transcriptText;
 
-    // 1️⃣ Try to fetch transcript automatically if not provided
+    // 1️⃣ If no manual transcript, try automatic transcript
     if (!transcriptText) {
-      console.log(`🎥 Processing video: ${videoUrl}`);
       try {
+        console.log("🎥 Fetching transcript...");
         finalTranscript = await getTranscriptText(videoUrl);
-        console.log(`📝 Auto-extracted transcript length: ${finalTranscript.length} characters`);
-      } catch (transcriptError) {
-        console.log(`⚠️ Auto transcript extraction failed: ${transcriptError.message}`);
+      } catch (err) {
         return res.status(400).json({
-          error: "This video doesn't have automatic transcripts available.",
-          suggestion: "Please paste the video transcript manually in the text area below.",
+          error: "This video has no transcript available. Paste manually.",
           requiresManualTranscript: true
         });
       }
-    } else {
-      console.log(`📝 Manual transcript provided, length: ${transcriptText.length} characters`);
     }
 
-    // Check if transcript is meaningful
-    if (finalTranscript.length < 100) {
+    // 2️⃣ Validate transcript
+    if (!finalTranscript || finalTranscript.length < 50) {
       return res.status(400).json({
-        error: "Transcript is too short to summarize properly. Please provide a more complete transcript."
+        error: "Transcript too short to summarize.",
+        requiresManualTranscript: true
       });
     }
 
-    // 2️⃣ Create summarization prompt with transcript
-    const summarizationPrompt = `
-      You are an expert at summarizing YouTube videos. Your task is to analyze the provided transcript and create a summary that captures the main points of THIS SPECIFIC VIDEO.
+    // 3️⃣ Build summarization prompt
+    const prompt = `
+Summarize the YouTube video into 5–8 bullet points based ONLY on the transcript.
 
-      VIDEO URL: ${videoUrl}
-      TRANSCRIPT:
-      ${finalTranscript}
+Transcript:
+${finalTranscript}
 
-      INSTRUCTIONS:
-      - Read the entire transcript carefully
-      - Identify the main topic and key points discussed in this video
-      - Create 5-8 bullet points that summarize the core content
-      - Focus ONLY on information from this transcript
-      - Do not make up information or reference other videos
-      - Be specific and accurate to the content provided
+Rules:
+- Accurate
+- No hallucinations
+- Use bullet points
+`;
 
-      SUMMARY OF THIS VIDEO:
-    `;
+    // 4️⃣ Use your AI summarizer
+    const result = await openrouterService.generate(prompt, "openai/gpt-4.1-mini");
 
-    // 3️⃣ Send to AI summarizer
-    const result = await openrouterService.generate(summarizationPrompt, "");
+    if (!result?.text) {
+      return res.status(500).json({ error: "AI failed to generate summary." });
+    }
 
     res.json({
       summary: result.text,
-      source: service || "openrouter",
-      transcriptUsed: transcriptText ? "manual" : "auto"
+      transcriptUsed: transcriptText ? "manual" : "auto",
+      source: "openrouter"
     });
 
   } catch (error) {
-    console.error("🎥 Video summarization error:", error);
-    res.status(500).json({ error: "Failed to summarize video." });
+    console.error("Video summary error:", error);
+    res.status(500).json({ error: "Server error while summarizing video." });
   }
 }
 
-module.exports = { handleVideoSummary };
+module.exports = {
+  handleVideoSummary
+};
+
+
+
+//hello

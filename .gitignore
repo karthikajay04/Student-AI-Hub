@@ -1,0 +1,76 @@
+# ============================
+# System Files
+# ============================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================
+# Node.js
+# ============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============================
+# Environment Variables
+# ============================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ============================
+# Build Directories
+# ============================
+dist/
+build/
+out/
+.next/
+
+# ============================
+# React / Vite
+# ============================
+.vite/
+*.local
+
+# ============================
+# Python / Flask / Django
+# ============================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+instance/
+venv/
+env/
+.virtualenv/
+pip-wheel-metadata/
+
+# ============================
+# Logs
+# ============================
+logs/
+*.log
+
+# ============================
+# Editor & IDE
+# ============================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ============================
+# OS & Misc
+# ============================
+.cache/
+.tmp/
+temp/

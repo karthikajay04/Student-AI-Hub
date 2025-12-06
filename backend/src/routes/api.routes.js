@@ -11,6 +11,8 @@ const authRoutes = require("./auth.routes");
 const contactRoute = require("./contact");
 const notesRoutes = require("./notes.routes");
 
+const roadmapRoutes = require("./roadmap.routes");
+
 // -------------------- AI GENERATION ROUTES --------------------
 router.post('/generate', aiController.handleGeneration);
 router.post('/codegen', aiController.handleCodeGeneration);
@@ -32,5 +34,9 @@ router.use("/contact", contactRoute);
 
 // note routes
 router.use("/notes", notesRoutes);
+
+
+// roadmap routes
+router.use("/roadmap", roadmapRoutes);
 
 module.exports = router;
