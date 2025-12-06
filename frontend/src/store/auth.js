@@ -1,24 +1,10 @@
 import { create } from "zustand";
 
-type User = {
-  id?: number;
-  name?: string | null;
-  email?: string | null;
-};
+export const useAuth = create((set) => {
+  let initialToken = null;
+  let initialUser = null;
 
-type AuthState = {
-  user: User | null;
-  token: string | null;
-  isLogin: boolean;
-  login: (payload: { token: string; user: User }) => void;
-  logout: () => void;
-};
-
-export const useAuth = create<AuthState>((set) => {
-  // read from localStorage once on init
-  let initialToken: string | null = null;
-  let initialUser: User | null = null;
-
+  // Try to hydrate from localStorage once on init
   try {
     const raw = localStorage.getItem("auth");
     if (raw) {
@@ -26,10 +12,15 @@ export const useAuth = create<AuthState>((set) => {
       initialToken = parsed.token || null;
       initialUser = parsed.user || null;
     } else {
-      initialToken = localStorage.getItem("token") || null;
-      initialUser = null;
+      // backward compatible: if only "token" was stored before
+      const legacyToken = localStorage.getItem("token");
+      if (legacyToken) {
+        initialToken = legacyToken;
+        initialUser = null;
+      }
     }
-  } catch {
+  } catch (e) {
+    console.error("Failed to read auth from localStorage", e);
     initialToken = null;
     initialUser = null;
   }
@@ -39,15 +30,18 @@ export const useAuth = create<AuthState>((set) => {
     token: initialToken,
     isLogin: !!initialToken,
 
+    // called as: login({ token, user })
     login: ({ token, user }) => {
       try {
         localStorage.setItem(
           "auth",
           JSON.stringify({ token, user })
         );
+        localStorage.setItem("token", token); // keep legacy key too
       } catch (e) {
         console.error("Failed to persist auth", e);
       }
+
       set({ token, user, isLogin: true });
     },
 
