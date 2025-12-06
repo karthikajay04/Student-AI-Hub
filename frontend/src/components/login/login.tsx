@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from "react";
 import { SplineScene } from "@/components/login/splite";
@@ -26,11 +26,23 @@ export function Login() {
     const name = params.get("name");
     const email = params.get("email");
 
+    console.log("Google redirect params:", { token, name, email });
+
     if (token) {
+      // Optional: persist auth so refresh keeps user logged in
+      try {
+        localStorage.setItem(
+          "auth",
+          JSON.stringify({ token, user: { name, email } })
+        );
+      } catch (e) {
+        console.error("Failed to store auth in localStorage", e);
+      }
+
       login({ token, user: { name, email } });
       navigate("/tools");
     }
-  }, []);
+  }, [login, navigate]);
 
   return (
     <div className="w-screen h-screen bg-black relative overflow-hidden">
@@ -136,7 +148,6 @@ function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
       login(res.data);
       navigate("/tools");
-
     } catch (err: any) {
       setError(err.response?.data?.error || "Authentication failed.");
     }
@@ -144,7 +155,6 @@ function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-
       {mode === "signup" && (
         <FloatingInput label="Full Name" type="text" name="name" required />
       )}
