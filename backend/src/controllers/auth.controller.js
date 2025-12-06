@@ -84,7 +84,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// ------------------ GOOGLE LOGIN (REDIRECT) ------------------
+// ------------------ GOOGLE LOGIN (REDIRECT TO GOOGLE) ------------------
 exports.googleLogin = (req, res) => {
   try {
     const url = getGoogleLoginURL();
@@ -95,7 +95,7 @@ exports.googleLogin = (req, res) => {
   }
 };
 
-// ------------------ GOOGLE CALLBACK ------------------
+// ------------------ GOOGLE CALLBACK (GOOGLE → BACKEND → FRONTEND) ------------------
 exports.googleCallback = async (req, res) => {
   try {
     const code = req.query.code;
@@ -125,6 +125,7 @@ exports.googleCallback = async (req, res) => {
       user = existing.rows[0];
     }
 
+    // ✅ Create JWT Token
     const token = jwt.sign(
       {
         id: user.id,
@@ -135,9 +136,13 @@ exports.googleCallback = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    // Redirect back to frontend with token
+    // ✅ Redirect to frontend WITH token + name + email
     return res.redirect(
-      `${process.env.GOOGLE_AUTH_REDIRECT}?token=${token}`
+      `${process.env.GOOGLE_AUTH_REDIRECT}?token=${encodeURIComponent(
+        token
+      )}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(
+        user.email
+      )}`
     );
   } catch (error) {
     console.error("Google Callback Error:", error);
