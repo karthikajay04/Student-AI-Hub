@@ -1,3 +1,4 @@
+// backend/routes/contact.js
 const express = require("express");
 const router = express.Router();
 const transporter = require("../utils/mailer");
@@ -6,7 +7,10 @@ router.post("/", async (req, res) => {
   try {
     const { name, email, message } = req.body;
 
+    console.log("📩 Incoming contact request:", { name, email });
+
     if (!name || !email || !message) {
+      console.warn("⚠️ Contact validation failed – missing fields");
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -14,6 +18,7 @@ router.post("/", async (req, res) => {
     }
 
     // 1️⃣ Send email to Admin
+    console.log("📨 Sending admin email from contact form...");
     await transporter.sendMail({
       from: `"AI Hub Contact" <${process.env.MAIL_USER}>`,
       to: process.env.MAIL_USER,
@@ -25,8 +30,10 @@ router.post("/", async (req, res) => {
         <p><strong>Message:</strong> ${message}</p>
       `,
     });
+    console.log("✅ Admin email sent successfully");
 
     // 2️⃣ Send auto-reply to User
+    console.log("📨 Sending auto-reply email to user...");
     await transporter.sendMail({
       from: `"AI Hub Support" <${process.env.MAIL_USER}>`,
       to: email,
@@ -42,13 +49,20 @@ router.post("/", async (req, res) => {
         <p>Best regards,<br>AI Hub Team</p>
       `,
     });
+    console.log("✅ Auto-reply email sent successfully");
 
     return res.status(200).json({
       success: true,
       message: "Message sent successfully",
     });
-
   } catch (error) {
+    console.error("❌ Contact mail error:", {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      stack: error.stack,
+    });
+
     return res.status(500).json({
       success: false,
       message: "Failed to send message",
