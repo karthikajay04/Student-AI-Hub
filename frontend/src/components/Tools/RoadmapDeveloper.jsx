@@ -3,13 +3,13 @@ import { useAuth } from "@/store/auth";
 import { API_BASE_URL } from "../../api";
 
 // --- Icons ---
-const PlusIcon = ({ className = "h-4 w-4" }) => (
+const PlusIcon = ({ className = "h-5 w-5" }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
     <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
   </svg>
 );
 
-const TrashIcon = ({ className = "h-4 w-4" }) => (
+const TrashIcon = ({ className = "h-5 w-5" }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
     <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M9 6v12a2 2 0 002 2h2a2 2 0 002-2V6M10 6V4a1 1 0 011-1h2a1 1 0 011 1v2" />
   </svg>
@@ -222,50 +222,32 @@ export default function RoadmapApp() {
     }
   }
 
-  // ----------------- UPDATED AI GENERATION HANDLER -----------------
-  // ----------------- UPDATED AI GENERATION HANDLER -----------------
+  // ----------------- AI GENERATION HANDLER -----------------
   async function handleGenerateContent(itemId, title, service) {
     setGeneratingItemId(itemId);
     setErrorMessage(null);
 
-    // 1. Strict System Prompt
     const systemPrompt = `You are an expert curriculum designer. Given a topic, you must generate a list of sub-tasks and some helpful notes. Respond *only* with a single, valid JSON object. Do not include any other text or markdown.
 The JSON object must have two keys:
 1. "tasks": an array of 3-5 strings, where each string is an actionable sub-task.
-2. "notes": a single string containing a concise, helpful note about the topic.
-
-Example response:
-{
-  "tasks": ["Task 1", "Task 2", "Task 3"],
-  "notes": "This is a helpful note."
-}`;
+2. "notes": a single string containing a concise, helpful note about the topic.`;
 
     try {
-      console.log(`Sending request to AI. Service: ${service}, Topic: ${title}`);
-
-      // 2. Prepare Payload
-      // CRITICAL FIX: Map 'title' to 'prompt' because ai.controller expects 'prompt'
       const payload = {
         prompt: title,
         systemPrompt: systemPrompt + " Return ONLY valid JSON.",
         service: service,
       };
 
-      // 3. Call API - CRITICAL FIX: Use the direct AI route found in api.routes.js
-      // OLD (Broken): "http://localhost:5001/api/roadmap/generate"
-      // NEW (Working): "http://localhost:5001/api/generate"
       const res = await apiFetch(`${API_BASE_URL}/api/generate`, token, {
         method: "POST",
         body: JSON.stringify(payload),
       });
 
       const rawText = res.text || "";
-
-      // 4. Robust Parsing (Regex match for JSON object)
-      // Attempt to find longest JSON block first
       let jsonMatch = rawText.match(/\{[\s\S]*?\}(?=[^}]*$)/) || rawText.match(/\{[\s\S]*\}/);
+      
       if (!jsonMatch) {
-        console.error("Invalid AI Response:", rawText);
         throw new Error("No JSON object found in AI response.");
       }
 
@@ -279,7 +261,6 @@ Example response:
       const newTasks = parsed.tasks || [];
       const newNotes = parsed.notes || "";
 
-      // 5. Merge Notes (Append to existing notes instead of replacing)
       const currentItem = studyItems.find((it) => it.id === itemId);
       const existingNotes = currentItem?.notes || "";
 
@@ -289,14 +270,12 @@ Example response:
           ? `${existingNotes}\n\n--- AI Notes (${service}) ---\n${newNotes}`
           : `--- AI Notes (${service}) ---\n${newNotes}`;
 
-        // Update DB with new merged notes (We still use roadmap routes for DB updates)
         await apiFetch(`${API_BASE_URL}/api/roadmap/${itemId}`, token, {
           method: "PUT",
           body: JSON.stringify({ notes: finalNotes }),
         });
       }
 
-      // 6. Add Subtasks (One by one to DB)
       if (newTasks.length > 0) {
         for (const t of newTasks) {
           await apiFetch(`${API_BASE_URL}/api/roadmap/${itemId}/subtask`, token, {
@@ -306,7 +285,6 @@ Example response:
         }
       }
 
-      // 7. Reload items to sync local state with DB
       await loadItems();
 
     } catch (err) {
@@ -316,22 +294,22 @@ Example response:
       setGeneratingItemId(null);
     }
   }
-  // -----------------------------------------------------------------
 
-  // helper to get item title for modal
   const getItemName = (id) => studyItems.find((it) => it.id === id)?.title || "this item";
 
   // ---------------- UI ----------------
   return (
-    <div className="min-h-screen bg-black text-white flex justify-center pt-24 p-6">
+    // ADJUSTED: Padding responsive (p-4 mobile, p-6 desktop)
+    <div className="min-h-screen bg-black text-white flex justify-center pt-20 pb-12 px-4 md:pt-24 md:p-6">
       <div className="w-full max-w-3xl">
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold text-blue-500 mb-2">My Learning Roadmap</h1>
-          <p className="text-gray-400">Click on an item to expand and manage tasks & notes.</p>
+          {/* ADJUSTED: Font size responsive */}
+          <h1 className="text-2xl md:text-3xl font-bold text-blue-500 mb-2">My Learning Roadmap</h1>
+          <p className="text-gray-400 text-sm md:text-base">Click on an item to expand and manage tasks & notes.</p>
         </div>
 
         {errorMessage && (
-          <div className="bg-red-900 border border-red-700 text-red-100 p-3 rounded mb-4">
+          <div className="bg-red-900 border border-red-700 text-red-100 p-3 rounded mb-4 text-sm">
             <strong>Oops:</strong> {errorMessage}
           </div>
         )}
@@ -342,23 +320,23 @@ Example response:
             value={newItemTitle}
             onChange={(e) => setNewItemTitle(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addMainItem()}
-            placeholder="Add new study item (e.g. Algorithms, DevOps)"
-            className="flex-1 p-3 rounded-lg bg-[#0f1720] border border-gray-700 text-white focus:outline-none"
+            placeholder="Add new study item..."
+            className="flex-1 p-3 rounded-lg bg-[#0f1720] border border-gray-700 text-white focus:outline-none text-sm md:text-base"
           />
-          <button onClick={addMainItem} className="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-lg flex items-center gap-2">
-            <PlusIcon /> Add
+          <button onClick={addMainItem} className="bg-blue-600 hover:bg-blue-700 px-4 md:px-5 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap">
+            <PlusIcon /> <span className="hidden sm:inline">Add</span>
           </button>
         </div>
 
         {/* Loading */}
         {loading ? (
           <div className="text-center text-gray-400 py-12">
-            <Spinner className="h-6 w-6 inline-block mr-2" /> Loading items...
+            <Spinner className="h-6 w-6 inline-block mr-2" /> Loading...
           </div>
         ) : (
           <div className="space-y-4">
             {studyItems.length === 0 && (
-              <div className="text-center text-gray-500 py-8">No items yet. Add one to get started.</div>
+              <div className="text-center text-gray-500 py-8 text-sm">No items yet. Add one to get started.</div>
             )}
 
             {studyItems.map((item) => (
@@ -406,7 +384,6 @@ function StudyItemCard({
 }) {
   const [subTaskText, setSubTaskText] = useState("");
   const [titleEdit, setTitleEdit] = useState(item.title);
-  // State for local model selection
   const [selectedService, setSelectedService] = useState("openrouter");
 
   useEffect(() => {
@@ -426,51 +403,53 @@ function StudyItemCard({
   return (
     <div className="bg-[#0b1116] border border-gray-800 rounded-xl transition">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => onToggleExpand(item.id)}>
+      {/* ADJUSTED: Padding reduction for mobile */}
+      <div className="flex items-center justify-between p-3 md:p-4 cursor-pointer" onClick={() => onToggleExpand(item.id)}>
         <div className="flex-1 overflow-hidden">
           <input
             value={titleEdit}
             onChange={(e) => setTitleEdit(e.target.value)}
             onBlur={() => onUpdateTitle(item.id, titleEdit)}
-            onClick={(e) => e.stopPropagation()} // Stop expand on click input
-            className="bg-transparent text-lg font-semibold text-gray-100 w-full truncate outline-none"
+            onClick={(e) => e.stopPropagation()} 
+            className="bg-transparent text-base md:text-lg font-semibold text-gray-100 w-full truncate outline-none"
           />
-          <div className="mt-2 bg-gray-800 rounded-full h-2 w-full overflow-hidden">
+          <div className="mt-2 bg-gray-800 rounded-full h-1.5 md:h-2 w-full overflow-hidden">
             <div className="bg-blue-600 h-full transition-all" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
-        <div className="flex items-center ml-4">
-          <span className="text-sm text-gray-400 w-12 text-right">{progress}%</span>
+        <div className="flex items-center ml-3 md:ml-4">
+          <span className="text-xs md:text-sm text-gray-400 w-8 md:w-12 text-right">{progress}%</span>
 
           <button
             onClick={(e) => {
               e.stopPropagation();
               onDeleteMainItem(item.id);
             }}
-            className="ml-4 text-gray-500 hover:text-red-400"
+            className="ml-3 md:ml-4 text-gray-500 hover:text-red-400 p-1"
             title="Delete item"
           >
             <TrashIcon />
           </button>
 
-          <div className={`ml-4 text-xl transform transition-transform ${item.expanded ? "rotate-180" : "rotate-0"}`}>▼</div>
+          <div className={`ml-2 md:ml-4 text-xl transform transition-transform text-gray-500 ${item.expanded ? "rotate-180" : "rotate-0"}`}>▼</div>
         </div>
       </div>
 
       {/* Body */}
       {item.expanded && (
-        <div className="p-4 border-t border-gray-700 space-y-4">
+        <div className="p-3 md:p-4 border-t border-gray-700 space-y-4">
+          
           {/* Generate + model selector */}
-          <div className="flex gap-2 items-center">
+          {/* ADJUSTED: flex-col on mobile so buttons don't squash */}
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                // Pass the selected service
                 onGenerateContent(item.id, item.title, selectedService);
               }}
               disabled={isGenerating}
-              className="flex-1 px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded-lg font-semibold transition disabled:bg-gray-700 disabled:cursor-not-allowed text-sm md:text-base"
+              className="flex-1 px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded-lg font-semibold transition disabled:bg-gray-700 disabled:cursor-not-allowed text-sm"
             >
               {isGenerating ? (
                 <span className="flex items-center justify-center gap-2">
@@ -486,13 +465,12 @@ function StudyItemCard({
               value={selectedService}
               onChange={(e) => setSelectedService(e.target.value)}
               disabled={isGenerating}
-              className="bg-[#0f1720] text-gray-300 text-sm rounded-lg py-2 px-3 border border-gray-700 focus:outline-none cursor-pointer"
+              className="bg-[#0f1720] text-gray-300 text-sm rounded-lg py-2 px-3 border border-gray-700 focus:outline-none cursor-pointer w-full sm:w-auto"
               aria-label="Select AI model"
             >
               <option value="openrouter">OpenRouter</option>
               <option value="cerebras">Cerebras</option>
               <option value="llama">Llama</option>
-              
             </select>
           </div>
 
@@ -503,7 +481,7 @@ function StudyItemCard({
               onChange={(e) => setSubTaskText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAdd())}
               placeholder="Add a new task..."
-              className="flex-1 p-2 rounded-lg bg-[#0f1720] border border-gray-700 text-white focus:outline-none"
+              className="flex-1 p-2 rounded-lg bg-[#0f1720] border border-gray-700 text-white focus:outline-none text-sm md:text-base"
             />
             <button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-semibold">
               Add
@@ -516,19 +494,23 @@ function StudyItemCard({
               <p className="text-sm text-gray-500">No tasks yet.</p>
             ) : (
               (item.subTasks || []).map((task) => (
-                <div key={task.id} className="flex items-center justify-between p-2 rounded-md bg-[#0f1720] group">
-                  <div className="flex items-center gap-3">
+                <div key={task.id} className="flex items-start justify-between p-2 rounded-md bg-[#0f1720] group">
+                  <div className="flex items-start gap-3 w-full">
                     <input
                       type="checkbox"
                       checked={!!task.done}
                       onChange={() => onToggleSubTask(item.id, task.id)}
-                      className="w-4 h-4 accent-blue-500 cursor-pointer"
+                      className="mt-1 w-4 h-4 accent-blue-500 cursor-pointer flex-shrink-0"
                     />
-                    <span className={`truncate ${task.done ? "line-through text-gray-500" : "text-gray-300"}`}>{task.text}</span>
+                    {/* ADJUSTED: break-words instead of truncate so mobile users see full text */}
+                    <span className={`text-sm md:text-base break-words w-full pr-2 ${task.done ? "line-through text-gray-500" : "text-gray-300"}`}>
+                      {task.text}
+                    </span>
                   </div>
                   <button
                     onClick={() => onDeleteSubTask(item.id, task.id)}
-                    className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                    // ADJUSTED: Always visible on mobile (opacity-100), hidden on desktop until hover
+                    className="text-gray-500 hover:text-red-400 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1"
                     title="Delete task"
                   >
                     ✕
@@ -540,12 +522,12 @@ function StudyItemCard({
 
           {/* Notes */}
           <div>
-            <h3 className="text-md font-semibold text-blue-400 mb-2">Notes</h3>
+            <h3 className="text-sm md:text-md font-semibold text-blue-400 mb-2">Notes</h3>
             <textarea
               value={item.notes || ""}
               onChange={(e) => onUpdateNotes(item.id, e.target.value)}
               placeholder="Add your notes here..."
-              className="w-full h-28 p-2 rounded-lg bg-[#0f1720] border border-gray-700 text-white focus:outline-none focus:border-blue-500"
+              className="w-full h-36 p-3 rounded-lg bg-[#0f1720] border border-gray-700 text-white focus:outline-none focus:border-blue-500 text-sm md:text-base leading-relaxed"
             />
           </div>
         </div>
@@ -558,17 +540,17 @@ function StudyItemCard({
 function ConfirmationModal({ isOpen, itemName, onCancel, onConfirm }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-      <div className="bg-[#0b1116] border border-gray-700 rounded-xl p-6 w-full max-w-md m-4">
-        <h2 className="text-xl font-bold text-white mb-3">Confirm Deletion</h2>
-        <p className="text-gray-300 mb-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4">
+      <div className="bg-[#0b1116] border border-gray-700 rounded-xl p-5 md:p-6 w-full max-w-sm md:max-w-md shadow-2xl">
+        <h2 className="text-lg md:text-xl font-bold text-white mb-3">Confirm Deletion</h2>
+        <p className="text-gray-300 mb-6 text-sm md:text-base">
           Are you sure you want to delete <strong className="text-blue-400">"{itemName}"</strong>? This cannot be undone.
         </p>
         <div className="flex justify-end gap-3">
-          <button onClick={onCancel} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold">
+          <button onClick={onCancel} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold text-sm">
             Cancel
           </button>
-          <button onClick={onConfirm} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold">
+          <button onClick={onConfirm} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-sm">
             Delete
           </button>
         </div>
