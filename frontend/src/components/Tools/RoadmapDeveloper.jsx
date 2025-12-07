@@ -492,7 +492,7 @@ function StudyItemCard({
               <option value="openrouter">OpenRouter</option>
               <option value="cerebras">Cerebras</option>
               <option value="llama">Llama</option>
-              <option value="deepseek">Deepseek</option>
+              
             </select>
           </div>
 
