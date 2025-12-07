@@ -418,7 +418,7 @@ export default function AiChatbot() {
               >
                 <option value="cerebras">Cerebras</option>
                 <option value="llama">Llama</option>
-                <option value="deepseek">Deepseek (takes ~1 min)</option>
+                
                 <option value="openrouter">OpenRouter</option>
               </select>
             </div>
