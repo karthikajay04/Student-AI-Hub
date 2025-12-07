@@ -1,30 +1,24 @@
 // backend/utils/mailer.js
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
-// Basic sanity check on env vars (won't print secrets)
-console.log("📧 MAILER CONFIG:");
-console.log("  MAIL_USER present:", !!process.env.MAIL_USER);
-console.log("  MAIL_PASS present:", !!process.env.MAIL_PASS);
+if (!process.env.RESEND_API_KEY) {
+  console.warn("⚠️ RESEND_API_KEY is not set. Emails will fail.");
+}
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Verify transporter on startup so we see errors in Render logs
-transporter.verify((err, success) => {
-  if (err) {
-    console.error("❌ Nodemailer verification failed:", {
-      message: err.message,
-      code: err.code,
-      command: err.command,
-    });
-  } else {
-    console.log("✅ Mailer ready to send emails");
-  }
-});
+// Simple helper so the rest of your code stays clean
+async function sendMail({ from, to, subject, html }) {
+  const realFrom = from || `AI Hub <${process.env.MAIL_USER}>`;
 
-module.exports = transporter;
+  const response = await resend.emails.send({
+    from: realFrom,
+    to,
+    subject,
+    html,
+  });
+
+  return response;
+}
+
+module.exports = { sendMail };
