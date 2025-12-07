@@ -114,7 +114,7 @@ function TextSummarizer() {
             <option value="cerebras">Cerebras</option>
             <option value="openrouter">OpenRouter</option>
             <option value="llama">Llama</option>
-            <option value="ollama">Ollama</option>
+            
           </select>
         </div>
 
