@@ -7,15 +7,20 @@ if (!process.env.RESEND_API_KEY) {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Simple helper so the rest of your code stays clean
+// Updated helper to send ONLY to your registered email
 async function sendMail({ from, to, subject, html }) {
-  const realFrom = from || `AI Hub <${process.env.MAIL_USER}>`;
+  
+  // 1. Without a domain, 'from' MUST be this exact string:
+  const realFrom = "onboarding@resend.dev";
+
+  // 2. We override 'to' so it always goes to YOU, regardless of who the app tried to mail
+  const myEmail = "classroomsit19@gmail.com";
 
   const response = await resend.emails.send({
     from: realFrom,
-    to,
-    subject,
-    html,
+    to: myEmail, // This ensures it bypasses the 403 error
+    subject: `[For: ${to}] ${subject}`, // Added the original 'to' in subject so you know who it was for
+    html: html,
   });
 
   return response;
